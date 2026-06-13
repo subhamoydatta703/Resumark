@@ -1,7 +1,16 @@
 export interface ResumeUploadResponse {
   success: boolean;
   message: string;
-  resumeId: string;
+  resumeId?: string;
+  fileData?: {
+    resume?: {
+      id: string;
+      fileName: string;
+      status: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+  };
 }
 
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';

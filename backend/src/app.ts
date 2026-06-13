@@ -3,11 +3,16 @@ import cors from "cors";
 
 import { prisma } from "./config/db";
 
+import multerRoutes from "./routes/multerRoutes";
+
 const app = express();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// API Routes
+app.use("/api/resume", multerRoutes);
 
 // Health Check Route
 app.get("/health", async (req, res) => {

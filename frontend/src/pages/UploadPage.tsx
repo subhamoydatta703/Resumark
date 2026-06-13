@@ -37,10 +37,17 @@ export const UploadPage: React.FC = () => {
         });
       }
 
+      console.log("Upload response payload:", response);
+
       setUploadState((prev) => ({
         ...prev,
         status: "success",
-        resumeId: response.resumeId,
+        resumeId:
+          response.resumeId ||
+          response.fileData?.resume?.id ||
+          (response as any).fileData?.id ||
+          (response as any).id ||
+          "N/A",
         error: null,
       }));
     } catch (err: any) {
