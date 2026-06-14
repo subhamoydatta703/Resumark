@@ -3,13 +3,14 @@ import { createFileDB } from "../services/uploadResumeServive";
 export const uploadResume = async (req: Request, res: Response) => {
   try {
     const existFileName = req.file?.filename;
-    if (!existFileName) {
+    const existFilePath = req.file?.path;
+    if (!existFileName || !existFilePath) {
       return res.status(404).json({
         success: false,
-        message: "File name is undefined",
+        message: "File name or file path is undefined",
       });
     }
-    const fileData = await createFileDB(existFileName);
+    const fileData = await createFileDB(existFileName, existFilePath);
     
       console.log("fileData from uploadResume controller", JSON.stringify(fileData, null, 2));
     

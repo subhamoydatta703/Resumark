@@ -1,10 +1,11 @@
 import { prisma } from "../config/db";
 // import { Resume } from '../../prisma/generated/browser';
 
-export const createFileDB = async (existingfileName: string) => {
+export const createFileDB = async (existingfileName: string, existingfilePath: string) => {
   try {
-    const resume = await prisma.resume.create({
-      data: { fileName: existingfileName },
+    // issue with prisma db create , 
+    const resume = await prisma.resume.create({ 
+      data: { fileName: existingfileName, filePath: existingfilePath },
     });
     return {resume: resume};
   } catch (error) {

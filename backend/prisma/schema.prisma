@@ -15,6 +15,7 @@ datasource db {
 model Resume {
   id             String   @id @default(cuid())
   fileName       String
+  filePath       String
   status         String   @default("PENDING")
   analysisResult Json?
 
