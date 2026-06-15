@@ -6,10 +6,10 @@ import { AnalysisDashboard } from "../components/AnalysisDashboard";
 import { 
   uploadResume, 
   uploadResumeMock, 
-  getResumeDetails, 
+  analyzeResume, 
   getResumeDetailsMock 
 } from "../services/api";
-import type { UploadState } from "../types";
+import type { UploadState, ResumeDetailsResponse } from "../types";
 
 export const UploadPage: React.FC = () => {
   const [useMock, setUseMock] = useState<boolean>(true);
@@ -68,7 +68,7 @@ export const UploadPage: React.FC = () => {
         error: null,
       }));
 
-      // Start polling status
+      // Start polling status or run analysis
       startPolling(resumeId);
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -92,42 +92,49 @@ export const UploadPage: React.FC = () => {
 
     const pollStatus = async () => {
       try {
-        let response;
+        let response: ResumeDetailsResponse;
         if (useMock) {
           response = await getResumeDetailsMock(resumeId);
-        } else {
-          response = await getResumeDetails(resumeId);
-        }
+          console.log("Mock Poll response:", response);
 
-        console.log("Poll response:", response);
-
-        if (response.status === "COMPLETED") {
-          if (pollingTimerRef.current) {
-            window.clearInterval(pollingTimerRef.current);
-            pollingTimerRef.current = null;
+          if (response.status === "COMPLETED") {
+            if (pollingTimerRef.current) {
+              window.clearInterval(pollingTimerRef.current);
+              pollingTimerRef.current = null;
+            }
+            
+            setUploadState((prev) => ({
+              ...prev,
+              status: "completed",
+              analysisResult: response.analysisResult || null,
+              error: null,
+            }));
+          } else if (response.status === "FAILED") {
+            if (pollingTimerRef.current) {
+              window.clearInterval(pollingTimerRef.current);
+              pollingTimerRef.current = null;
+            }
+            
+            setUploadState((prev) => ({
+              ...prev,
+              status: "failed",
+              error: "Resume parsing and analysis pipeline failed on the server.",
+            }));
           }
-          
+        } else {
+          // Live API Mode: Call analyzeResume synchronously once
+          response = await analyzeResume(resumeId);
+          console.log("Live analysis response:", response);
+
           setUploadState((prev) => ({
             ...prev,
             status: "completed",
             analysisResult: response.analysisResult || null,
             error: null,
           }));
-        } else if (response.status === "FAILED") {
-          if (pollingTimerRef.current) {
-            window.clearInterval(pollingTimerRef.current);
-            pollingTimerRef.current = null;
-          }
-          
-          setUploadState((prev) => ({
-            ...prev,
-            status: "failed",
-            error: "Resume parsing and analysis pipeline failed on the server.",
-          }));
         }
-        // If PENDING, do nothing and let the next poll cycle run
       } catch (err: any) {
-        console.error("Polling error:", err);
+        console.error("Analysis error:", err);
         if (pollingTimerRef.current) {
           window.clearInterval(pollingTimerRef.current);
           pollingTimerRef.current = null;
@@ -146,9 +153,14 @@ export const UploadPage: React.FC = () => {
       }
     };
 
-    // Run first poll immediately, then every 2 seconds
-    pollStatus();
-    pollingTimerRef.current = window.setInterval(pollStatus, 2000);
+    if (useMock) {
+      // Run first mock poll immediately, then every 2 seconds
+      pollStatus();
+      pollingTimerRef.current = window.setInterval(pollStatus, 2000);
+    } else {
+      // Run single synchronous live call immediately
+      pollStatus();
+    }
   };
 
   const handleReset = () => {

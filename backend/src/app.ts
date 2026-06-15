@@ -4,6 +4,7 @@ import cors from "cors";
 import { prisma } from "./config/db";
 
 import multerRoutes from "./routes/multerRoutes";
+import resumeAnalysisRoutes from "./routes/resumeAnalysysRoutes";
 
 const app = express();
 
@@ -13,7 +14,7 @@ app.use(express.json());
 
 // API Routes
 app.use("/api/resume", multerRoutes);
-
+app.use("/api/analyze", resumeAnalysisRoutes);
 // Health Check Route
 app.get("/health", async (req, res) => {
   let dbStatus = "unknown";
