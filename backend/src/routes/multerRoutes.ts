@@ -1,12 +1,13 @@
 import { Router } from "express";
 import upload from "../middleware/multerMiddleware";
 import { uploadResume } from "../controllers/uploadResumeController";
+import { authMiddleware } from "../middleware/authMiddleware";
 
 import multer from "multer";
 
 const router = Router();
 
-router.post("/upload", (req, res, next) => {
+router.post("/upload", authMiddleware, (req, res, next) => {
   upload.single("resume")(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {

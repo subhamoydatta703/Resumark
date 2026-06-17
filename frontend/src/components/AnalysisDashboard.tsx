@@ -1,7 +1,17 @@
-import React, { useState } from "react";
-import { 
-  User, Mail, Phone, MapPin, Link, Briefcase, GraduationCap, 
-  TrendingUp, CheckCircle, AlertTriangle, Lightbulb, RefreshCw 
+import React, { useState, type ReactNode } from "react";
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Link,
+  Briefcase,
+  TrendingUp,
+  CheckCircle,
+  AlertTriangle,
+  Lightbulb,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import type { AnalysisResult } from "../types";
 
@@ -11,25 +21,26 @@ interface AnalysisDashboardProps {
   fileName: string | null;
 }
 
-const ScoreCard: React.FC<{ score: number; label: string; barColor: string }> = ({ 
-  score, 
-  label, 
-  barColor 
+const ScoreCard: React.FC<{ score: number; label: string; tone: "indigo" | "sky" | "emerald" }> = ({
+  score,
+  label,
+  tone,
 }) => {
+  const toneMap = {
+    indigo: "from-indigo-600 to-violet-500",
+    sky: "from-sky-600 to-cyan-400",
+    emerald: "from-emerald-600 to-teal-400",
+  };
+
   return (
-    <div className="p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/10 space-y-3 shadow-sm hover:border-slate-300 dark:hover:border-slate-800 transition-colors duration-200">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{label}</span>
+    <div className="rounded-2xl border border-slate-200 bg-white/85 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 dark:border-white/10 dark:bg-white/5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">{label}</p>
+      <div className="mt-3 flex items-end gap-2">
+        <span className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">{score}</span>
+        <span className="pb-1 text-sm text-slate-500 dark:text-slate-400">/ 100</span>
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight transition-colors">{score}</span>
-        <span className="text-xs text-slate-400 dark:text-slate-500">/ 100</span>
-      </div>
-      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200/60 dark:border-slate-900">
-        <div 
-          className={`h-full ${barColor} rounded-full`}
-          style={{ width: `${score}%` }}
-        ></div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+        <div className={`h-full rounded-full bg-gradient-to-r ${toneMap[tone]}`} style={{ width: `${score}%` }} />
       </div>
     </div>
   );
@@ -42,13 +53,10 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"overview" | "skills" | "experience" | "insights">("overview");
 
-  console.log("AnalysisDashboard data:", analysisResult);
-
   const {
     overallScore = 0,
     atsCompatibility = 0,
     formattingScore = 0,
-    candidateInfo = {} as any,
     summary = "",
     skills = [],
     experience = [],
@@ -58,316 +66,370 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     suggestedRoles = [],
   } = analysisResult || {};
 
+  const candidateInfo = analysisResult?.candidateInfo;
   const name = candidateInfo?.name || "Candidate Profile";
   const email = candidateInfo?.email || "Not Found";
   const phone = candidateInfo?.phone || "Not Found";
   const location = candidateInfo?.location || "Not Found";
   const linkedin = candidateInfo?.linkedin || "";
+  const linkedinUrl = linkedin
+    ? linkedin.startsWith("http")
+      ? linkedin
+      : `https://${linkedin}`
+    : "";
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 animate-scale-up">
-      {/* Dashboard Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/10 transition-colors duration-200">
-        <div>
-          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Analysis Result</span>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-0.5 leading-tight transition-colors">{name}</h2>
-          <p className="text-xs text-slate-500 mt-0.5 font-normal">Parsed from: <span className="text-slate-700 dark:text-slate-300 font-medium">{fileName || "Resume"}</span></p>
-        </div>
-        <button
-          onClick={onReset}
-          className="self-start md:self-center flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-sm active:scale-[0.98]"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-          New Analysis
-        </button>
-      </div>
-
-      {/* Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column: Sidebar details */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Score Cards */}
-          <div className="grid grid-cols-1 gap-4">
-            <ScoreCard score={overallScore} label="Overall Score" barColor="bg-indigo-600 dark:bg-indigo-500" />
-            <ScoreCard score={atsCompatibility} label="ATS Score" barColor="bg-blue-600 dark:bg-blue-500" />
-            <ScoreCard score={formattingScore} label="Formatting Score" barColor="bg-emerald-600 dark:bg-emerald-500" />
-          </div>
-
-          {/* Contact Details Card */}
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/10 space-y-4 shadow-sm transition-colors duration-200">
-            <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b border-slate-100 dark:border-slate-900/60 pb-2.5">Metadata</h3>
-            
-            <div className="space-y-3 text-xs font-normal">
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span className="truncate font-semibold text-slate-900 dark:text-white transition-colors">{name}</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                <Mail className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                {email && email !== "Not Found" ? (
-                  <a href={`mailto:${email}`} className="truncate font-medium hover:text-indigo-600 dark:hover:text-white transition-colors">
-                    {email}
-                  </a>
-                ) : (
-                  <span className="text-slate-400 dark:text-slate-600">Not Found</span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                <Phone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span>{phone}</span>
-              </div>
-              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span>{location}</span>
-              </div>
-              {linkedin && (
-                <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
-                  <Link className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                  <a href={`https://${linkedin}`} target="_blank" rel="noopener noreferrer" className="truncate font-medium hover:text-indigo-600 dark:hover:text-white transition-colors">
-                    {linkedin}
-                  </a>
-                </div>
-              )}
+    <div className="mx-auto w-full max-w-6xl space-y-6 animate-scale-up">
+      <section className="rounded-[1.75rem] border border-white/70 bg-white/90 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:p-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+              <Sparkles className="h-3.5 w-3.5" />
+              Analysis result
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+                {name}
+              </h2>
+              <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Parsed from <span className="font-semibold text-slate-950 dark:text-white">{fileName || "Resume"}</span>
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Tabbed Panels */}
-        <div className="lg:col-span-2 flex flex-col space-y-6">
-          
-          {/* Navigation Tabs (SaaS styling) */}
-          <div className="flex border-b border-slate-200 dark:border-slate-900 gap-6 px-1 transition-colors duration-200">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`py-3 text-xs font-semibold relative transition-colors duration-200 ${
-                activeTab === "overview"
-                  ? "text-slate-900 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-indigo-600 dark:after:bg-indigo-500"
-                  : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("skills")}
-              className={`py-3 text-xs font-semibold relative transition-colors duration-200 ${
-                activeTab === "skills"
-                  ? "text-slate-900 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-indigo-600 dark:after:bg-indigo-500"
-                  : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }`}
-            >
-              Skills Matrix
-            </button>
-            <button
-              onClick={() => setActiveTab("experience")}
-              className={`py-3 text-xs font-semibold relative transition-colors duration-200 ${
-                activeTab === "experience"
-                  ? "text-slate-900 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-indigo-600 dark:after:bg-indigo-500"
-                  : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }`}
-            >
-              Experience
-            </button>
-            <button
-              onClick={() => setActiveTab("insights")}
-              className={`py-3 text-xs font-semibold relative transition-colors duration-200 ${
-                activeTab === "insights"
-                  ? "text-slate-900 dark:text-white after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-indigo-600 dark:after:bg-indigo-500"
-                  : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-              }`}
-            >
-              AI Insights
-            </button>
+          <button
+            onClick={onReset}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+          >
+            <RefreshCw className="h-4 w-4" />
+            New analysis
+          </button>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+        <aside className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            <ScoreCard score={overallScore} label="Overall score" tone="indigo" />
+            <ScoreCard score={atsCompatibility} label="ATS score" tone="sky" />
+            <ScoreCard score={formattingScore} label="Formatting score" tone="emerald" />
           </div>
 
-          {/* Tab content panel */}
-          <div className="flex-1 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/10 min-h-[400px] shadow-sm transition-colors duration-200">
-            
-            {/* Overview Panel */}
+          <section className="rounded-[1.75rem] border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
+              Candidate details
+            </h3>
+
+            <div className="mt-5 space-y-4">
+              <DetailRow icon={<User className="h-4 w-4" />} label="Name" value={name} />
+              <DetailRow
+                icon={<Mail className="h-4 w-4" />}
+                label="Email"
+                value={email}
+                link={email !== "Not Found" ? `mailto:${email}` : undefined}
+              />
+              <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={phone} />
+              <DetailRow icon={<MapPin className="h-4 w-4" />} label="Location" value={location} />
+              {linkedin && (
+                <DetailRow
+                  icon={<Link className="h-4 w-4" />}
+                  label="LinkedIn"
+                  value={linkedin}
+                  link={linkedinUrl}
+                />
+              )}
+            </div>
+          </section>
+        </aside>
+
+        <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white/85 shadow-sm dark:border-white/10 dark:bg-white/5">
+          <div className="border-b border-slate-200/80 px-4 pt-4 dark:border-white/10 sm:px-6">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <TabButton active={activeTab === "overview"} onClick={() => setActiveTab("overview")}>
+                Overview
+              </TabButton>
+              <TabButton active={activeTab === "skills"} onClick={() => setActiveTab("skills")}>
+                Skills
+              </TabButton>
+              <TabButton active={activeTab === "experience"} onClick={() => setActiveTab("experience")}>
+                Experience
+              </TabButton>
+              <TabButton active={activeTab === "insights"} onClick={() => setActiveTab("insights")}>
+                AI insights
+              </TabButton>
+            </div>
+          </div>
+
+          <div className="p-5 sm:p-7">
             {activeTab === "overview" && (
               <div className="space-y-6 animate-scale-up">
-                <div className="space-y-2">
-                  <h3 className="text-md font-semibold text-slate-800 dark:text-white">Summary</h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-950/40 p-4 rounded-xl border border-slate-200 dark:border-slate-900/60 font-normal transition-colors">
+                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Summary</h3>
+                  <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                     {summary || "No summary details were parsed."}
                   </p>
-                </div>
+                </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-                  <div className="p-4.5 bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-900 rounded-xl space-y-2 transition-colors">
-                    <h4 className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <TrendingUp className="w-3.5 h-3.5 text-slate-400" />
-                      Suggested Roles
+                <div className="grid gap-4 md:grid-cols-2">
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                      Suggested roles
                     </h4>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       {suggestedRoles.length > 0 ? (
                         suggestedRoles.map((role) => (
-                          <span key={role} className="text-[11px] font-semibold px-2.5 py-1 bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 rounded-md transition-colors">
+                          <span
+                            key={role}
+                            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"
+                          >
                             {role}
                           </span>
                         ))
                       ) : (
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-light">None suggested</span>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">None suggested</p>
                       )}
                     </div>
-                  </div>
+                  </section>
 
-                  <div className="p-4.5 bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-900 rounded-xl space-y-2 transition-colors">
-                    <h4 className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-slate-400" />
+                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
                       Education
                     </h4>
-                    <div className="space-y-2.5 pt-1">
+                    <div className="mt-4 space-y-4">
                       {education.length > 0 ? (
                         education.map((edu, idx) => (
-                          <div key={idx} className="text-xs space-y-0.5">
-                            <p className="font-semibold text-slate-700 dark:text-slate-200 leading-tight transition-colors">{edu.degree || "Degree Studies"}</p>
-                            <p className="text-slate-500 text-[11px]">{edu.school || "University"} • {edu.year || "N/A"}</p>
+                          <div key={idx} className="space-y-1">
+                            <p className="font-semibold text-slate-950 dark:text-white">
+                              {edu.degree || "Degree Studies"}
+                            </p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                              {edu.school || "University"} - {edu.year || "N/A"}
+                            </p>
                           </div>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-400 dark:text-slate-600 font-light">None extracted</span>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">None extracted</p>
                       )}
                     </div>
-                  </div>
+                  </section>
                 </div>
               </div>
             )}
 
-            {/* Skills Panel */}
             {activeTab === "skills" && (
-              <div className="space-y-5 animate-scale-up">
-                <h3 className="text-md font-semibold text-slate-800 dark:text-white">Extracted Skills</h3>
-                <div className="space-y-4">
+              <div className="space-y-6 animate-scale-up">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Extracted skills</h3>
+                </div>
+
+                <div className="space-y-5">
                   {skills.length > 0 ? (
                     skills.map((skillCat) => (
-                      <div key={skillCat.category || "General"} className="space-y-2">
-                        <h4 className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{skillCat.category || "Skills"}</h4>
+                      <section key={skillCat.category || "General"} className="space-y-3">
+                        <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
+                          {skillCat.category || "Skills"}
+                        </h4>
                         <div className="flex flex-wrap gap-2">
                           {Array.isArray(skillCat.items) && skillCat.items.length > 0 ? (
                             skillCat.items.map((skill: string) => (
-                              <span 
-                                key={skill} 
-                                className="text-xs font-semibold px-2.5 py-1.5 bg-slate-50 border border-slate-300 text-slate-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 rounded-lg transition-colors"
+                              <span
+                                key={skill}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"
                               >
                                 {skill}
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-slate-400 dark:text-slate-600 font-light">None parsed</span>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">None parsed</p>
                           )}
                         </div>
-                      </div>
+                      </section>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-500">No skills mapped.</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">No skills mapped.</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Experience Panel */}
             {activeTab === "experience" && (
               <div className="space-y-6 animate-scale-up">
-                <h3 className="text-md font-semibold text-slate-800 dark:text-white font-semibold">Experience</h3>
-                
-                <div className="relative border-l border-slate-200 dark:border-slate-800 pl-5 ml-2 space-y-7">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Experience</h3>
+                </div>
+
+                <div className="space-y-6 border-l border-dashed border-slate-200 pl-5 dark:border-white/10 sm:pl-6">
                   {experience.length > 0 ? (
                     experience.map((exp, idx) => (
-                      <div key={idx} className="relative group">
-                        <div className="absolute -left-[26px] top-1.5 w-2 h-2 rounded-full bg-slate-200 border border-slate-300 dark:bg-slate-800 dark:border-slate-900 group-hover:bg-indigo-600 dark:group-hover:bg-indigo-500 transition-colors shadow-sm"></div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
-                            <h4 className="text-xs font-bold text-slate-700 dark:text-white tracking-tight transition-colors">{exp.role || "Role"}</h4>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">{exp.duration || "N/A"}</span>
+                      <article key={idx} className="relative">
+                        <span className="absolute -left-[25px] top-1.5 h-3 w-3 rounded-full border border-indigo-300 bg-white dark:border-indigo-400 dark:bg-slate-950" />
+                        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                            <h4 className="text-base font-semibold text-slate-950 dark:text-white">
+                              {exp.role || "Role"}
+                            </h4>
+                            <span className="inline-flex self-start rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+                              {exp.duration || "N/A"}
+                            </span>
                           </div>
-                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                            <Briefcase className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+
+                          <p className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                            <Briefcase className="h-4 w-4" />
                             {exp.company || "Company"}
                           </p>
-                          <ul className="list-disc list-inside space-y-1.5 text-xs text-slate-500 dark:text-slate-400 mt-2.5 pl-0.5 leading-relaxed font-normal transition-colors">
+
+                          <ul className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                             {Array.isArray(exp.description) ? (
                               exp.description.map((desc: string, dIdx: number) => (
-                                <li key={dIdx} className="leading-relaxed pl-1 marker:text-slate-300 dark:marker:text-slate-800">
-                                  <span className="relative -left-1 text-slate-500 dark:text-slate-400">{desc}</span>
+                                <li key={dIdx} className="flex items-start gap-2">
+                                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-500" />
+                                  <span>{desc}</span>
                                 </li>
                               ))
                             ) : (
-                              <li className="leading-relaxed pl-1 marker:text-slate-300 dark:marker:text-slate-800">
-                                <span className="relative -left-1 text-slate-500 dark:text-slate-400">{exp.description || ""}</span>
+                              <li className="flex items-start gap-2">
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-500" />
+                                <span>{exp.description || ""}</span>
                               </li>
                             )}
                           </ul>
                         </div>
-                      </div>
+                      </article>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-500 font-light">No experience parsed.</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">No experience parsed.</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* AI Insights Panel */}
             {activeTab === "insights" && (
-              <div className="space-y-5 animate-scale-up">
-                <h3 className="text-md font-semibold text-slate-800 dark:text-white flex items-center gap-1.5">
-                  <Lightbulb className="w-4.5 h-4.5 text-slate-500 dark:text-slate-400" />
-                  AI Feedback
-                </h3>
+              <div className="space-y-6 animate-scale-up">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">AI feedback</h3>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
-                  
-                  {/* Strengths */}
-                  <div className="space-y-3 p-4 border border-emerald-200 dark:border-slate-800 bg-emerald-50/20 dark:bg-slate-900/10 rounded-xl transition-colors">
-                    <h4 className="text-[9px] font-bold text-emerald-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-500 dark:text-slate-400" />
-                      Strengths
-                    </h4>
-                    <ul className="space-y-2.5 pt-1">
-                      {strengths.length > 0 ? (
-                        strengths.map((str, idx) => (
-                          <li key={idx} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-2 leading-relaxed">
-                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full mt-1.5 shrink-0"></span>
-                            <span>{str}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-500 font-light">None listed</p>
-                      )}
-                    </ul>
-                  </div>
-
-                  {/* Improvements */}
-                  <div className="space-y-3 p-4 border border-amber-200 dark:border-slate-800 bg-amber-50/20 dark:bg-slate-900/10 rounded-xl transition-colors">
-                    <h4 className="text-[9px] font-bold text-amber-600 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500 dark:text-slate-400" />
-                      Improvements
-                    </h4>
-                    <ul className="space-y-2.5 pt-1">
-                      {improvements.length > 0 ? (
-                        improvements.map((imp, idx) => (
-                          <li key={idx} className="text-xs text-slate-650 dark:text-slate-400 flex items-start gap-2 leading-relaxed">
-                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full mt-1.5 shrink-0"></span>
-                            <span>{imp}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <p className="text-xs text-slate-550 font-light">None listed</p>
-                      )}
-                    </ul>
-                  </div>
-
+                <div className="grid gap-4 md:grid-cols-2">
+                  <InsightCard
+                    title="Strengths"
+                    tone="emerald"
+                    icon={<CheckCircle className="h-4 w-4" />}
+                    items={strengths}
+                  />
+                  <InsightCard
+                    title="Improvements"
+                    tone="amber"
+                    icon={<AlertTriangle className="h-4 w-4" />}
+                    items={improvements}
+                  />
                 </div>
               </div>
             )}
-
           </div>
-        </div>
-
+        </section>
       </div>
     </div>
   );
 };
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+        active
+          ? "bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950"
+          : "bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+  link,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  link?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
+          {label}
+        </p>
+        {link ? (
+          <a
+            href={link}
+            target={link.startsWith("http") ? "_blank" : undefined}
+            rel={link.startsWith("http") ? "noreferrer" : undefined}
+            className="mt-1 block break-words text-sm font-medium text-slate-950 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300"
+          >
+            {value}
+          </a>
+        ) : (
+          <p className="mt-1 break-words text-sm font-medium text-slate-950 dark:text-white">{value}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InsightCard({
+  title,
+  tone,
+  icon,
+  items,
+}: {
+  title: string;
+  tone: "emerald" | "amber";
+  icon: ReactNode;
+  items: string[];
+}) {
+  const toneClasses =
+    tone === "emerald"
+      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/20 dark:bg-emerald-500/10"
+      : "border-amber-200 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/10";
+  const textTone = tone === "emerald" ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300";
+
+  return (
+    <section className={`rounded-2xl border p-5 ${toneClasses}`}>
+      <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] ${textTone}`}>
+        {icon}
+        {title}
+      </div>
+      <ul className="mt-4 space-y-3">
+        {items.length > 0 ? (
+          items.map((item, idx) => (
+            <li key={idx} className="flex items-start gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
+              <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${tone === "emerald" ? "bg-emerald-500" : "bg-amber-500"}`} />
+              <span>{item}</span>
+            </li>
+          ))
+        ) : (
+          <p className="text-sm text-slate-500 dark:text-slate-400">None listed</p>
+        )}
+      </ul>
+    </section>
+  );
+}

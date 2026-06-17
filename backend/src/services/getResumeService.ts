@@ -2,15 +2,8 @@ import { prisma } from "../config/db";
 import { redisClient } from "../config/redis.caching";
 
 
-export const getResumeResultService = async (resumeID: string) => {
-    // const file = await prisma.resume.findUnique({
-    //     where: { id: resumeID },
-    //     select: { 
-    //         status: true,
-    //         analysisResult: true,
-    //     },
-    // });
-    const cacheKey = `resume:${resumeID}`;
+export const getResumeResultService = async (resumeID: string, userId: string) => {
+    const cacheKey = `user:${userId}:resume:${resumeID}`;
     const cachedResume = await redisClient.get(cacheKey);
 
     if (!cachedResume) {
@@ -19,6 +12,7 @@ export const getResumeResultService = async (resumeID: string) => {
                 id: resumeID,
             },
             select: {
+                userId: true,
                 status: true,
                 analysisResult: true,
             },
@@ -26,10 +20,16 @@ export const getResumeResultService = async (resumeID: string) => {
         if (!resume) {
             throw new Error("Resume not found");
         }
+        if (resume.userId !== userId) {
+            throw new Error("Unauthorized: You do not own this resume");
+        }
         if (resume.status === "COMPLETED" || resume.status === "FAILED") {
             await redisClient.set(
                 cacheKey,
-                JSON.stringify(resume),
+                JSON.stringify({
+                    status: resume.status,
+                    analysisResult: resume.analysisResult
+                }),
                 {
                     EX: 300,
                 }
@@ -39,7 +39,10 @@ export const getResumeResultService = async (resumeID: string) => {
 
         console.log("Cache miss");
 
-        return resume;
+        return {
+            status: resume.status,
+            analysisResult: resume.analysisResult
+        };
     }
     console.log("Cache Hit");
     return JSON.parse(cachedResume);

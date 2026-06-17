@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { clerkMiddleware } from "@clerk/express";
 
 import { prisma } from "./config/db";
 
@@ -28,6 +29,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(clerkMiddleware());
 
 // API Routes
 app.use("/api/resume", multerRoutes);

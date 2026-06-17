@@ -1,12 +1,13 @@
 # Resume Analyzer
 
-A high-performance, artificial intelligence-powered system designed to process, parse, and analyze professional resumes. The application is divided into a robust, cache-efficient backend API and a responsive React frontend web application.
+A resume analyzing and review platform built with Bun, Express, Prisma, Redis, BullMQ, Clerk, React, Vite, and Tailwind CSS. The app uploads PDF resumes, parses them asynchronously, and returns structured AI analysis with scores, extracted details, and improvement suggestions.
 
 ### Key Features
-- **Asynchronous Task Queue**: Utilizes BullMQ backed by Redis to handle PDF parsing and heavy AI operations asynchronously in a separate background worker process.
-- **AI-Driven Evaluation**: Leverages the Google Gemini API to extract candidate information, categorize technical competencies, highlight professional strengths, recommend constructive improvements, score ATS compatibility, and suggest relevant job roles.
-- **Multi-Tier Caching**: Utilizes an in-memory Redis cache for high-speed retrieval of completed analysis results and implements a duplicate-check workflow utilizing original file names to bypass redundant database inserts and computationally expensive AI API calls.
-- **Modern User Experience**: Provides a clean, dark-themed drag-and-drop upload interface, a real-time parser progress tracking monitor with polling fallback, and interactive analytics dashboards.
+- **Clerk-based authentication**: Frontend sign-in uses Clerk, and backend routes validate authenticated requests before reading or creating resume records.
+- **Asynchronous analysis pipeline**: Resume analysis runs through a BullMQ queue and background worker so uploads stay responsive.
+- **AI-driven evaluation**: Google Gemini powers resume parsing, scoring, skill extraction, ATS-style feedback, and suggested roles.
+- **Responsive frontend**: The UI uses a shared shell, mobile-friendly cards, and state-based screens for upload, pending, success, and error flows.
+- **Persistent resume history**: PostgreSQL stores uploaded resumes and analysis results, while Redis helps with queueing and cached lookups.
 
 ---
 
@@ -14,68 +15,75 @@ A high-performance, artificial intelligence-powered system designed to process, 
 
 ```mermaid
 graph TD
-    %% Frontend Components
-    subgraph Frontend ["React Frontend"]
-        UI["Upload UI / Dashboard"]
-        API_Client["Axios API Client"]
-        UI -->|"Upload Action"| API_Client
+    subgraph Frontend["React Frontend"]
+        App["App / Clerk auth shell"]
+        UploadPage["UploadPage"]
+        Uploader["ResumeUploader"]
+        Scanner["PendingScanner"]
+        Dashboard["AnalysisDashboard"]
+        Api["Axios API client"]
+
+        App --> UploadPage
+        UploadPage --> Uploader
+        UploadPage --> Scanner
+        UploadPage --> Dashboard
+        UploadPage --> Api
     end
 
-    %% Backend Components
-    subgraph Backend ["Express Backend Server & Worker"]
-        Multer["Multer Middleware"]
-        Router["Express Router"]
-        Upload_Ctrl["uploadResumeController"]
-        Analyze_Ctrl["analyzeResumeController"]
-        Get_Ctrl["getResumeResultController"]
-        PDF_Parser["PDF Parser Utils"]
-        Gemini["Gemini AI Service"]
-        Worker["BullMQ Worker (workerService.ts)"]
-        
-        Multer -->|"Saves PDF to public/data/uploads"| Upload_Ctrl
-        Router -->|"POST /api/resume/upload"| Multer
-        Router -->|"POST /api/analyze/:id"| Analyze_Ctrl
-        Router -->|"GET /api/analyze/:id/analyze"| Get_Ctrl
+    subgraph Backend["Bun + Express API"]
+        GlobalAuth["Global clerkMiddleware()"]
+        Auth["authMiddleware using getAuth(req)"]
+        UploadRoute["POST /api/resume/upload"]
+        AnalyzeRoute["POST /api/analyze/:id"]
+        ResultRoute["GET /api/analyze/:id/analyze"]
+        UploadCtrl["uploadResumeController"]
+        AnalyzeCtrl["analyzeResumeController"]
+        ResultCtrl["getResumeResultController"]
+        UploadSvc["uploadResumeService"]
+        AnalyzeSvc["resumeAnalysisService"]
+        GetSvc["getResumeService"]
+        Worker["workerService"]
+        Parser["pdfParser.ts"]
+        Gemini["geminiService.ts"]
     end
 
-    %% Database & External Services
-    subgraph Database_Layer ["Data Layer (Postgres & Redis)"]
+    subgraph Data["Data Layer"]
         Prisma["Prisma Client"]
-        DB[("PostgreSQL Database")]
-        RedisQueue[("Redis: BullMQ Queue")]
-        RedisCache[("Redis: Cache Client")]
-        Prisma -->|"Queries/Updates"| DB
+        Postgres[("PostgreSQL")]
+        RedisQueue[("Redis BullMQ Queue")]
+        RedisCache[("Redis Cache")]
     end
 
-    subgraph External ["External Services"]
-        GoogleGemini["Google Gemini API"]
+    subgraph External["External Service"]
+        Clerk["Clerk"]
+        GeminiAPI["Google Gemini API"]
     end
 
-    %% Connections
-    API_Client -->|"POST /api/resume/upload"| Router
-    API_Client -->|"POST /api/analyze/:id"| Router
-    API_Client -->|"GET /api/analyze/:id/analyze"| Router
+    Api -->|"Bearer token / credentials"| GlobalAuth
+    GlobalAuth --> Auth
+    Auth --> UploadRoute
+    Auth --> AnalyzeRoute
+    Auth --> ResultRoute
 
-    Upload_Ctrl -->|"1. Check Duplicate originalName, 2. Create PENDING Resume"| Prisma
-    
-    %% Analysis flow (BullMQ Queue)
-    Analyze_Ctrl -->|"1. Pushes job to queue"| RedisQueue
-    Analyze_Ctrl -->|"2. Returns 202 (Analysis started)"| API_Client
-    
-    %% Worker processing flow
-    RedisQueue -->|"3. Pulls job"| Worker
-    Worker -->|"4. Sets status to PROCESSING"| Prisma
-    Worker -->|"5. Extracts text"| PDF_Parser
-    Worker -->|"6. Calls Gemini"| Gemini
-    Gemini -->|"7. Generates structured JSON"| GoogleGemini
-    Worker -->|"8. Saves results & sets COMPLETED"| Prisma
-    Worker -->|"9. Invalidates cache key"| RedisCache
+    UploadRoute --> UploadCtrl
+    AnalyzeRoute --> AnalyzeCtrl
+    ResultRoute --> ResultCtrl
 
-    %% Get analysis result caching flow
-    Get_Ctrl -->|"1. Check Cache"| RedisCache
-    RedisCache -->|"Cache Hit - Return Data"| Get_Ctrl
-    RedisCache -->|"Cache Miss - Fetch Resume"| Prisma
-    Prisma -->|"Save to Cache 300s (Only COMPLETED/FAILED)"| RedisCache
+    UploadCtrl --> UploadSvc
+    AnalyzeCtrl --> RedisQueue
+    ResultCtrl --> GetSvc
+
+    UploadSvc --> Prisma
+    GetSvc --> RedisCache
+    GetSvc --> Prisma
+    AnalyzeSvc --> Prisma
+    Worker --> RedisQueue
+    Worker --> AnalyzeSvc
+    AnalyzeSvc --> Parser
+    AnalyzeSvc --> Gemini
+    Gemini --> GeminiAPI
+    Prisma --> Postgres
+    Clerk --> GlobalAuth
 ```
 
 ---
@@ -84,60 +92,68 @@ graph TD
 
 ```
 resume_analyzer/
-├── backend/          # Express API server powered by Bun and TypeScript
-│   ├── prisma/       # Prisma ORM schema, migrations, and database configurations
-│   │   ├── migrations/
-│   │   └── schema.prisma
-│   ├── public/       # Static public files
-│   │   └── data/
-│   │       └── uploads/ # Uploaded resumes (Git-ignored)
-│   ├── src/          # Application source code
-│   │   ├── config/       # Configuration files (DB connection, Redis clients setup)
-│   │   │   ├── db.ts
-│   │   │   ├── redis.bullmq.ts  # Redis connection configuration for BullMQ
-│   │   │   └── redis.caching.ts # Redis client and connection setup for Caching
-│   │   ├── controllers/  # Request handlers
-│   │   │   ├── analyzeResumeController.ts
-│   │   │   ├── getResumeResultController.ts
-│   │   │   └── uploadResumeController.ts
-│   │   ├── middleware/   # Custom Express middlewares (Multer setup)
-│   │   │   └── multerMiddleware.ts
-│   │   ├── queues/       # BullMQ queue configurations
-│   │   │   └── resume.queue.ts
-│   │   ├── routes/       # API route definitions
-│   │   │   ├── multerRoutes.ts
-│   │   │   └── resumeAnalysisRoutes.ts
-│   │   ├── services/     # Business logic, database operations, and background worker
-│   │   │   ├── geminiService.ts
-│   │   │   ├── getResumeService.ts
-│   │   │   ├── resumeAnalysisService.ts
-│   │   │   ├── uploadResumeService.ts
-│   │   │   └── workerService.ts # Background job handler (BullMQ Worker)
-│   │   ├── utils/        # Utility helpers (PDF parser setup)
-│   │   │   └── pdfParser.ts
-│   │   ├── app.ts        # Express application configuration and routing
-│   │   └── server.ts     # Server entry point, database, and caching connection setup
-│   ├── package.json  # Bun dependencies, Prisma scripts, and project configurations
-│   └── tsconfig.json # TypeScript configuration
-└── frontend/         # React + TypeScript + Vite web application
-    ├── src/
-    │   ├── assets/      # Graphical assets and static resources
-    │   ├── components/  # Reusable UI components
-    │   │   ├── AnalysisDashboard.tsx  # Scoring and structured analysis views
-    │   │   ├── PendingScanner.tsx     # Progress indicator showing parser stages
-    │   │   └── ResumeUploader.tsx     # Drag and drop upload area with progress bar
-    │   ├── pages/       # Page layout components
-    │   │   └── UploadPage.tsx         # Main entry point for theme handling and upload flows
-    │   ├── services/    # API integration services
-    │   │   └── api.ts                 # Axios HTTP client, API mappings, and polling flow
-    │   ├── types/       # TypeScript type definitions
-    │   │   └── index.ts               # Shared types, state models, and API responses
-    │   ├── App.css      # CSS baseline styles
-    │   ├── App.tsx      # Main application view mount
-    │   ├── index.css    # Tailwind CSS layout utility directives
-    │   └── main.tsx     # Web entry point and React root mounting
-    ├── package.json     # Node scripts and React dependencies
-    └── tailwind.config.js # Tailwind CSS configuration
+|-- backend/
+|   |-- prisma/
+|   |   |-- migrations/
+|   |   `-- schema.prisma
+|   |-- public/
+|   |   `-- data/
+|   |       `-- uploads/
+|   |           `-- .gitkeep
+|   |-- src/
+|   |   |-- app.ts
+|   |   |-- server.ts
+|   |   |-- config/
+|   |   |   |-- db.ts
+|   |   |   |-- redis.bullmq.ts
+|   |   |   `-- redis.caching.ts
+|   |   |-- controllers/
+|   |   |   |-- analyzeResumeController.ts
+|   |   |   |-- getResumeResultController.ts
+|   |   |   `-- uploadResumeController.ts
+|   |   |-- middleware/
+|   |   |   |-- authMiddleware.ts
+|   |   |   `-- multerMiddleware.ts
+|   |   |-- queues/
+|   |   |   `-- resume.queue.ts
+|   |   |-- routes/
+|   |   |   |-- multerRoutes.ts
+|   |   |   `-- resumeAnalysisRoutes.ts
+|   |   |-- services/
+|   |   |   |-- geminiService.ts
+|   |   |   |-- getResumeService.ts
+|   |   |   |-- resumeAnalysisService.ts
+|   |   |   |-- uploadResumeService.ts
+|   |   |   `-- workerService.ts
+|   |   `-- utils/
+|   |       `-- pdfParser.ts
+|   |-- package.json
+|   `-- tsconfig.json
+|-- frontend/
+|   |-- public/
+|   |   |-- favicon.svg
+|   |   `-- icons.svg
+|   |-- src/
+|   |   |-- assets/
+|   |   |-- components/
+|   |   |   |-- AnalysisDashboard.tsx
+|   |   |   |-- PageShell.tsx
+|   |   |   |-- PendingScanner.tsx
+|   |   |   `-- ResumeUploader.tsx
+|   |   |-- pages/
+|   |   |   `-- UploadPage.tsx
+|   |   |-- services/
+|   |   |   `-- api.ts
+|   |   |-- types/
+|   |   |   `-- index.ts
+|   |   |-- App.tsx
+|   |   |-- index.css
+|   |   `-- main.tsx
+|   |-- package.json
+|   `-- vite.config.ts
+|-- docker-compose.yml
+|-- .gitignore
+`-- README.md
 ```
 
 ---
@@ -146,15 +162,17 @@ resume_analyzer/
 
 ### Backend
 - **Runtime**: Bun
-- **Framework**: Express with TypeScript
-- **Database ORM**: Prisma (configured for PostgreSQL with `@prisma/adapter-pg` connection pooling)
+- **Framework**: Express 5 with TypeScript
+- **Authentication**: Clerk Express middleware and `getAuth(req)`
+- **Database ORM**: Prisma with PostgreSQL
 - **Task Queue**: BullMQ
+- **Cache**: Redis
 - **File Upload**: Multer
-- **In-Memory Cache & Message Broker**: Redis (caching resume lookup results and powering BullMQ queues)
-- **AI Integration**: Google GenAI SDK (`@google/genai`)
+- **AI Integration**: Google Gemini
 
 ### Frontend
-- **Framework**: React + Vite with TypeScript
+- **Framework**: React 19 + Vite
+- **Authentication UI**: Clerk React
 - **Styling**: Tailwind CSS v3
 - **HTTP Client**: Axios
 - **Icons**: Lucide React
@@ -165,9 +183,11 @@ resume_analyzer/
 
 ### Prerequisites
 
-- **Bun** (v1.x or higher) installed locally.
-- **PostgreSQL** database instance.
-- **Redis** server running locally (default port 6379).
+- **Bun** 1.x or newer
+- **PostgreSQL** database
+- **Redis** server
+- **Clerk** application keys
+- **Google Gemini API key**
 
 ### 1. Backend Setup
 
@@ -182,32 +202,30 @@ resume_analyzer/
    ```
 
 3. **Configure environment variables**:
-   Create a `.env` file in the `backend` directory and add your database connection string and server port:
+   Create `backend/.env` and set the required values:
    ```env
    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
    GEMINI_API_KEY="your-gemini-api-key"
+   FRONTEND_URL="http://localhost:5173,http://localhost:3000"
+   CLERK_PUBLISHABLE_KEY="pk_test_..."
+   CLERK_SECRET_KEY="sk_test_..."
    PORT=5000
    ```
 
-4. **Run database migrations**:
-   Apply the Prisma schema to your PostgreSQL database:
+4. **Apply Prisma schema changes**:
    ```bash
    bun run db:push
    ```
 
-5. **Start the application**:
-   - Running the development API server (auto-reloading):
-     ```bash
-     bun run dev
-     ```
-   - **Start the background worker** (in a separate terminal window):
-     ```bash
-     bun run src/services/workerService.ts
-     ```
-   - Production execution (API server):
-     ```bash
-     bun run start
-     ```
+5. **Start the backend API**:
+   ```bash
+   bun run dev
+   ```
+
+6. **Start the background worker in a second terminal**:
+   ```bash
+   bun run src/services/workerService.ts
+   ```
 
 ### 2. Frontend Setup
 
@@ -221,21 +239,22 @@ resume_analyzer/
    bun install
    ```
 
-3. **Configure environment variables (optional)**:
-   Create a `.env` file in the `frontend` directory to target a custom API endpoint (defaults to `http://localhost:5000`):
+3. **Configure environment variables**:
+   Create `frontend/.env` if you want to override defaults:
    ```env
    VITE_API_URL="http://localhost:5000"
+   VITE_CLERK_PUBLISHABLE_KEY="pk_test_..."
    ```
 
-4. **Start the application**:
-   - Start the local development server:
-     ```bash
-     bun run dev
-     ```
-   - Build for production:
-     ```bash
-     bun run build
-     ```
+4. **Start the frontend**:
+   ```bash
+   bun run dev
+   ```
+
+5. **Build for production**:
+   ```bash
+   bun run build
+   ```
 
 ---
 
@@ -244,34 +263,44 @@ resume_analyzer/
 ### 1. Health Check
 - **URL**: `/health`
 - **Method**: `GET`
-- **Description**: Inspects system health parameters, specifically verifying the Express server status and database connectivity. It returns a status message indicating overall system health and database adapter connection details.
+- **Description**: Verifies the API and database connectivity.
 
 ### 2. Upload Resume
 - **URL**: `/api/resume/upload`
 - **Method**: `POST`
 - **Content Type**: `multipart/form-data`
-- **Payload**: Includes a PDF document attached via the `resume` form parameter.
+- **Auth**: Required
+- **Payload**: Attach a PDF under the `resume` field.
 - **Workflow**:
-  - The server checks if a resume with the same original filename already exists in the database.
-  - If a match is found, the server fetches and returns the existing database record directly.
-  - If the resume is new, it generates a unique database ID, saves the PDF file under a randomized identifier, initializes its status as pending, and returns the newly registered resume record.
+  - Clerk auth is resolved by the backend middleware.
+  - The file is validated and written to `backend/public/data/uploads/`.
+  - A `Resume` row is created or reused depending on the service logic.
 
 ### 3. Queue Resume Analysis
 - **URL**: `/api/analyze/:id`
 - **Method**: `POST`
-- **Parameters**: Requires the unique `id` of the resume in the URL path.
+- **Auth**: Required
+- **Parameters**: Resume ID in the path.
 - **Workflow**:
-  - Pushes an asynchronous parsing and evaluation task onto the `"resume-analysis"` BullMQ queue.
-  - Returns a `202 (Analysis started)` status response immediately to prevent timeout on heavy loads.
-  - The background worker pulls the job, extracts PDF text, analyzes it with the Gemini AI service, stores the result in Postgres, and invalidates any existing cache keys.
+  - Verifies the authenticated user owns the resume.
+  - Adds an analysis job to the BullMQ queue.
+  - Returns `202 Accepted` while the worker processes the file.
 
 ### 4. Get Resume Analysis Result
 - **URL**: `/api/analyze/:id/analyze`
 - **Method**: `GET`
-- **Parameters**: Requires the unique `id` of the resume in the URL path.
+- **Auth**: Required
+- **Parameters**: Resume ID in the path.
 - **Workflow**:
-  - Checks if the resume is cached in Redis:
-    - On a **Cache Hit**, it parses the cached data and returns it immediately.
-    - On a **Cache Miss**, it queries PostgreSQL for the resume status and `analysisResult`.
-  - If the database status is `COMPLETED` or `FAILED`, it caches the result in Redis for 300 seconds to accelerate subsequent lookups.
-  - If the status is `PENDING` or `PROCESSING`, it returns the status directly without caching to ensure the client gets fresh updates during polling.
+  - Verifies ownership.
+  - Reads from Redis cache first.
+  - Falls back to PostgreSQL if the cache misses.
+  - Returns the latest analysis state and structured result payload.
+
+---
+
+## Notes
+
+- The uploads directory is intentionally kept in git with [backend/public/data/uploads/.gitkeep](backend/public/data/uploads/.gitkeep) so the folder exists after clone.
+- Generated uploads are ignored by `.gitignore`.
+- The frontend uses Clerk auth, so requests should only succeed after sign-in and token retrieval.

@@ -34,7 +34,7 @@ export const analyzeThisResume = async (thisFileID: string) => {
         cleanText = cleanText.trim();
 
         const parsedAnalysis = JSON.parse(cleanText);
-        await prisma.resume.update({
+        const updatedResume = await prisma.resume.update({
             where: {
                 id: thisFileID,
             },
@@ -42,21 +42,33 @@ export const analyzeThisResume = async (thisFileID: string) => {
                 status: "COMPLETED",
                 analysisResult: parsedAnalysis,
             },
+            select: {
+                userId: true,
+            },
         });
-          const cacheKey = `resume:${thisFileID}`;
-                  await redisClient.del(cacheKey);
+        const cacheKey = `user:${updatedResume.userId}:resume:${thisFileID}`;
+        await redisClient.del(cacheKey);
 
         return analyzedData;
 
     } catch (error) {
         console.log("Error in analyzeThisResume function: ", error);
 
-        await prisma.resume.update({
-            where: { id: thisFileID },
-            data: {
-                status: "FAILED",
-            },
-        });
+        try {
+            const updatedResume = await prisma.resume.update({
+                where: { id: thisFileID },
+                data: {
+                    status: "FAILED",
+                },
+                select: {
+                    userId: true,
+                },
+            });
+            const cacheKey = `user:${updatedResume.userId}:resume:${thisFileID}`;
+            await redisClient.del(cacheKey);
+        } catch (dbErr) {
+            console.error("Failed to update status to FAILED in DB:", dbErr);
+        }
         throw error;
     }
 }

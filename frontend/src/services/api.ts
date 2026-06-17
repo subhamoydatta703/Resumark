@@ -1,15 +1,49 @@
 import axios from "axios";
-import type { ResumeUploadResponse, ResumeDetailsResponse } from "../types";
+import type {
+  ResumeUploadResponse,
+  ResumeDetailsResponse,
+  AnalysisResult,
+  SkillCategory,
+  WorkExperience,
+  EducationInfo,
+  CandidateInfo,
+} from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
+});
+
+let globalGetToken: (() => Promise<string | null>) | null = null;
+
+export const registerGetToken = (fn: () => Promise<string | null>) => {
+  globalGetToken = fn;
+};
+
+apiClient.interceptors.request.use(async (config) => {
+  config.withCredentials = true;
+
+  if (globalGetToken) {
+    try {
+      const token = await globalGetToken();
+      if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        console.warn("Clerk getToken() returned null; sending request with browser credentials only.");
+      }
+    } catch (err) {
+      console.error("Error fetching auth token:", err);
+    }
+  }
+  return config;
 });
 
 // Legacy text parsing for fallback safety
-function parseAnalysisResultLegacy(text: string): any {
-  const result: any = {
+function parseAnalysisResultLegacy(text: string): AnalysisResult {
+  const result: AnalysisResult = {
     overallScore: 75,
     atsCompatibility: 70,
     formattingScore: 80,
@@ -58,8 +92,23 @@ function parseAnalysisResultLegacy(text: string): any {
   return result;
 }
 
+interface ParsedAnalysisResponse {
+  overallScore?: number;
+  atsScore?: number;
+  atsCompatibility?: number;
+  formattingScore?: number;
+  candidateInfo?: Partial<CandidateInfo>;
+  summary?: string;
+  skills?: string[] | SkillCategory[] | Record<string, string | string[]>;
+  experience?: WorkExperience[];
+  education?: EducationInfo[];
+  strengths?: string[];
+  improvements?: string[];
+  suggestedRoles?: string[];
+}
+
 // Helper to parse unstructured text or JSON block returned by the backend API
-function parseAnalysisResult(text: string): any {
+function parseAnalysisResult(text: string): AnalysisResult {
   if (!text) {
     return {
       overallScore: 70,
@@ -89,15 +138,15 @@ function parseAnalysisResult(text: string): any {
     }
     cleanText = cleanText.trim();
 
-    const parsed = JSON.parse(cleanText);
+    const parsed = JSON.parse(cleanText) as ParsedAnalysisResponse;
     console.log("Successfully parsed backend Gemini JSON:", parsed);
 
     const info = parsed.candidateInfo || {};
     
     // Convert flat skills string array into frontend SkillCategory[]
-    let skillsList: any[] = [];
+    let skillsList: SkillCategory[] = [];
     if (Array.isArray(parsed.skills)) {
-      if (parsed.skills.every((s: any) => typeof s === "string")) {
+      if (parsed.skills.every((s: unknown) => typeof s === "string")) {
         skillsList = [{
           category: "Key Skills",
           items: parsed.skills
@@ -113,7 +162,7 @@ function parseAnalysisResult(text: string): any {
     }
 
     // Dynamic fallbacks for fields not provided by Gemini JSON block
-    const experienceList = Array.isArray(parsed.experience) ? parsed.experience : [
+    const experienceList: WorkExperience[] = Array.isArray(parsed.experience) ? parsed.experience : [
       {
         role: parsed.suggestedRoles?.[0] || "Software Engineer",
         company: "Professional Experience",
@@ -126,7 +175,7 @@ function parseAnalysisResult(text: string): any {
       }
     ];
 
-    const educationList = Array.isArray(parsed.education) ? parsed.education : [
+    const educationList: EducationInfo[] = Array.isArray(parsed.education) ? parsed.education : [
       {
         degree: "Bachelor's Degree in Computer Science / Engineering",
         school: "Accredited University",
@@ -167,7 +216,7 @@ export const uploadResume = async (
   const formData = new FormData();
   formData.append("resume", file);
 
-  const response = await apiClient.post<any>(
+  const response = await apiClient.post<unknown>(
     "/api/resume/upload",
     formData,
     {
@@ -185,7 +234,14 @@ export const uploadResume = async (
     }
   );
 
-  const data = response.data;
+  const data = response.data as {
+    fileData?: {
+      resume?: { id?: string; status?: "PENDING" | "COMPLETED" | "FAILED" };
+      id?: string;
+      status?: "PENDING" | "COMPLETED" | "FAILED";
+    };
+    resumeId?: string;
+  };
   console.log("Upload API raw response data:", data);
 
   const resumeId = data.fileData?.resume?.id || data.fileData?.id || data.resumeId || "";
@@ -200,8 +256,8 @@ export const uploadResume = async (
 export const analyzeResume = async (
   resumeId: string
 ): Promise<ResumeDetailsResponse> => {
-  const response = await apiClient.post<any>(`/api/analyze/${resumeId}`);
-  const data = response.data;
+  const response = await apiClient.post<unknown>(`/api/analyze/${resumeId}`);
+  const data = response.data as { status?: string; analysisResult?: unknown };
   console.log("Analyze API raw response data:", data);
 
   return {
@@ -213,8 +269,14 @@ export const analyzeResume = async (
 export const getResumeDetails = async (
   resumeId: string
 ): Promise<ResumeDetailsResponse> => {
-  const response = await apiClient.get<any>(`/api/analyze/${resumeId}/analyze`);
-  const data = response.data;
+  const response = await apiClient.get<unknown>(`/api/analyze/${resumeId}/analyze`);
+  const data = response.data as {
+    success?: boolean;
+    resumeRes?: {
+      status?: "PENDING" | "COMPLETED" | "FAILED";
+      analysisResult?: unknown;
+    };
+  };
   console.log("Get Resume Details API raw response data:", data);
 
   if (data.success && data.resumeRes) {
