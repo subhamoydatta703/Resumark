@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { analyzeThisResume } from "../services/resumeAnalysisService";
+import { ResumeAnalysisQueue } from "../queues/resume.queue";
 
 export const analyzeResume = async (req: Request, res: Response) => {
     try {
@@ -8,16 +8,19 @@ export const analyzeResume = async (req: Request, res: Response) => {
         if (!fileID) {
             throw new Error('Invalid or missing file ID');
         }
-        
-        const extractedData = await analyzeThisResume(fileID);
-        
-        return res.status(200).json({
-            success: true,
-            message: "Resume uploaded successfully",
-            extractedData,
-           
+
+        await ResumeAnalysisQueue.add(
+            "resume-analysis",
+            {
+                fileID,
+            }
+        );
+
+        return res.status(202).json({
+            message: "Analysis started",
         });
-    } catch (error) {
+    }
+    catch (error) {
         console.error("analyze resume controller error ", error);
         return res.status(500).json({
             success: false,

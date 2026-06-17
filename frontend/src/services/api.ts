@@ -203,13 +203,10 @@ export const analyzeResume = async (
   const response = await apiClient.post<any>(`/api/analyze/${resumeId}`);
   const data = response.data;
   console.log("Analyze API raw response data:", data);
-  
-  const extractedText = data.extractedData || "";
 
   return {
     id: resumeId,
-    status: "COMPLETED",
-    analysisResult: parseAnalysisResult(extractedText)
+    status: "PENDING",
   };
 };
 

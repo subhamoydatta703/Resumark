@@ -3,7 +3,9 @@ import { prisma } from "../config/db";
 import { getFilePathFromDB } from "../services/uploadResumeService";
 import { extractPDFText } from "../utils/pdfParser";
 import { analyzeWithGemini } from "./geminiService";
+import { redisClient } from "../config/redis.caching";
 export const analyzeThisResume = async (thisFileID: string) => {
+    
     try {
         const filePath: string | null = await getFilePathFromDB(thisFileID);
         if (!filePath) {
@@ -41,7 +43,8 @@ export const analyzeThisResume = async (thisFileID: string) => {
                 analysisResult: parsedAnalysis,
             },
         });
-
+          const cacheKey = `resume:${thisFileID}`;
+                  await redisClient.del(cacheKey);
 
         return analyzedData;
 

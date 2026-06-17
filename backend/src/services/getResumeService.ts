@@ -26,13 +26,15 @@ export const getResumeResultService = async (resumeID: string) => {
         if (!resume) {
             throw new Error("Resume not found");
         }
-        await redisClient.set(
-            cacheKey,
-            JSON.stringify(resume),
-            {
-                EX: 300,
-            }
-        );
+        if (resume.status === "COMPLETED" || resume.status === "FAILED") {
+            await redisClient.set(
+                cacheKey,
+                JSON.stringify(resume),
+                {
+                    EX: 300,
+                }
+            );
+        }
 
 
         console.log("Cache miss");
