@@ -1,5 +1,5 @@
 import { prisma } from "../config/db";
-import { redisClient } from "../config/redis";
+import { redisClient } from "../config/redis.caching";
 
 
 export const getResumeResultService = async (resumeID: string) => {
@@ -24,8 +24,8 @@ export const getResumeResultService = async (resumeID: string) => {
             },
         });
         if (!resume) {
-    throw new Error("Resume not found");
-}
+            throw new Error("Resume not found");
+        }
         await redisClient.set(
             cacheKey,
             JSON.stringify(resume),

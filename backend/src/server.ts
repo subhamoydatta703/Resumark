@@ -1,6 +1,6 @@
 import "dotenv/config";
 import app from "./app";
-import { connectRedis } from "./config/redis";
+import { connectRedis } from "./config/redis.caching";
 import { log } from "node:console";
 
 const PORT = process.env.PORT || 5000;
