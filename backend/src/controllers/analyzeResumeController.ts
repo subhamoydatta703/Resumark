@@ -36,6 +36,9 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
             "resume-analysis",
             {
                 fileID,
+            },
+            {
+                jobId: fileID,
             }
         );
 

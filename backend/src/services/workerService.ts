@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { bullRedisConnection } from "../config/redis.bullmq";
 import { analyzeThisResume } from "./resumeAnalysisService";
-import { prisma } from "../config/db";
+import { workerPrisma } from "../config/workerDB";
 import { connectRedis } from "../config/redis.caching";
 
 
@@ -16,7 +16,7 @@ const worker = new Worker("resume-analysis", async (job) => {
             throw new Error("Invalid or missing file ID");
         }
 
-        await prisma.resume.update({
+        await workerPrisma.resume.update({
             where: {
                 id: fileID,
             },
@@ -31,7 +31,7 @@ const worker = new Worker("resume-analysis", async (job) => {
 
     } catch (error) {
         console.log("Error in worker service: ", error);
-        await prisma.resume.update({
+        await workerPrisma.resume.update({
             where: { id: job.data.fileID },
             data: {
                 status: "FAILED",

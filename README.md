@@ -115,7 +115,8 @@ resume_analyzer/
 |   |   |-- config/
 |   |   |   |-- db.ts
 |   |   |   |-- redis.bullmq.ts
-|   |   |   `-- redis.caching.ts
+|   |   |   |-- redis.caching.ts
+|   |   |   `-- workerDB.ts
 |   |   |-- controllers/
 |   |   |   |-- analyzeResumeController.ts
 |   |   |   |-- getResumeResultController.ts
@@ -218,12 +219,13 @@ resume_analyzer/
 3. **Configure environment variables**:
    Create `backend/.env` and set the required values:
    ```env
-   DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
-   GEMINI_API_KEY="your-gemini-api-key"
-   FRONTEND_URL="http://localhost:5173,http://localhost:3000"
-   CLERK_PUBLISHABLE_KEY="pk_test_..."
-   CLERK_SECRET_KEY="sk_test_..."
-   PORT=5000
+    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+    WORKER_DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+    GEMINI_API_KEY="your-gemini-api-key"
+    FRONTEND_URL="http://localhost:5173,http://localhost:3000"
+    CLERK_PUBLISHABLE_KEY="pk_test_..."
+    CLERK_SECRET_KEY="sk_test_..."
+    PORT=5000
    ```
 
 4. **Apply Prisma schema changes**:

@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { prisma } from "../config/db";
-import { verifyClerkWebhook } from "../services/clerkWebhookVerficationSerivce";
+import { verifyClerkWebhook } from "../services/clerkWebhookVerificationSerivce";
 import { handleClerkWebhookEvent } from "../services/handleClerkWebhookEvent";
 const router = Router()
 

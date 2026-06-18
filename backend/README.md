@@ -46,7 +46,8 @@ backend/
 |   |-- config/
 |   |   |-- db.ts
 |   |   |-- redis.bullmq.ts
-|   |   `-- redis.caching.ts
+|   |   |-- redis.caching.ts
+|   |   `-- workerDB.ts
 |   |-- controllers/
 |   |   |-- analyzeResumeController.ts
 |   |   |-- getResumeResultController.ts
@@ -95,6 +96,7 @@ Create `backend/.env`:
 
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+WORKER_DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
 GEMINI_API_KEY="your-gemini-api-key"
 FRONTEND_URL="http://localhost:5173,http://localhost:3000"
 CLERK_PUBLISHABLE_KEY="pk_test_..."

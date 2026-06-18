@@ -1,6 +1,5 @@
 
-import { prisma } from "../config/db";
-import { getFilePathFromDB } from "../services/uploadResumeService";
+import { workerPrisma } from "../config/workerDB";
 import { extractPDFText } from "../utils/pdfParser";
 import { analyzeWithGemini } from "./geminiService";
 import { redisClient } from "../config/redis.caching";
@@ -9,20 +8,22 @@ import { AnalysisResultSchema } from "../utils/validation";
 export const analyzeThisResume = async (thisFileID: string) => {
     
     try {
-        const filePath: string | null = await getFilePathFromDB(thisFileID);
-        if (!filePath) {
+        const resume = await workerPrisma.resume.findUnique({
+            where: { id: thisFileID },
+            select: { status: true, analysisResult: true, filePath: true }
+        });
+        
+        if (!resume) {
             throw new Error('File not found');
         }
-        const resume = await prisma.resume.findUnique({
-            where: { id: thisFileID },
-            // select: { status: true, analysisResult: true }
-        });
-        if (resume && resume.status === "COMPLETED" && resume.analysisResult) {
+        
+        if (resume.status === "COMPLETED" && resume.analysisResult) {
             return typeof resume.analysisResult === "string"
                 ? resume.analysisResult
                 : JSON.stringify(resume.analysisResult);
         }
-        const extractedData = await extractPDFText(filePath);
+        
+        const extractedData = await extractPDFText(resume.filePath);
         const analyzedData = await analyzeWithGemini(extractedData);
         
         let cleanText = analyzedData.trim();
@@ -38,7 +39,7 @@ export const analyzeThisResume = async (thisFileID: string) => {
         const parsedAnalysis = JSON.parse(cleanText);
         const validatedAnalysis = AnalysisResultSchema.parse(parsedAnalysis);
 
-        const updatedResume = await prisma.resume.update({
+        const updatedResume = await workerPrisma.resume.update({
             where: {
                 id: thisFileID,
             },
@@ -59,7 +60,7 @@ export const analyzeThisResume = async (thisFileID: string) => {
         console.log("Error in analyzeThisResume function: ", error);
 
         try {
-            const updatedResume = await prisma.resume.update({
+            const updatedResume = await workerPrisma.resume.update({
                 where: { id: thisFileID },
                 data: {
                     status: "FAILED",
