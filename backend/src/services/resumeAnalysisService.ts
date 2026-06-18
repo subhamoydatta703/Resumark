@@ -4,6 +4,8 @@ import { getFilePathFromDB } from "../services/uploadResumeService";
 import { extractPDFText } from "../utils/pdfParser";
 import { analyzeWithGemini } from "./geminiService";
 import { redisClient } from "../config/redis.caching";
+import { AnalysisResultSchema } from "../utils/validation";
+
 export const analyzeThisResume = async (thisFileID: string) => {
     
     try {
@@ -34,13 +36,15 @@ export const analyzeThisResume = async (thisFileID: string) => {
         cleanText = cleanText.trim();
 
         const parsedAnalysis = JSON.parse(cleanText);
+        const validatedAnalysis = AnalysisResultSchema.parse(parsedAnalysis);
+
         const updatedResume = await prisma.resume.update({
             where: {
                 id: thisFileID,
             },
             data: {
                 status: "COMPLETED",
-                analysisResult: parsedAnalysis,
+                analysisResult: validatedAnalysis,
             },
             select: {
                 userId: true,

@@ -29,7 +29,7 @@ apiClient.interceptors.request.use(async (config) => {
     try {
       const token = await globalGetToken();
       if (token) {
-        config.headers = config.headers ?? {};
+        config.headers = config.headers ?? ({} as any);
         config.headers.Authorization = `Bearer ${token}`;
       } else {
         console.warn("Clerk getToken() returned null; sending request with browser credentials only.");
@@ -269,7 +269,7 @@ export const analyzeResume = async (
 export const getResumeDetails = async (
   resumeId: string
 ): Promise<ResumeDetailsResponse> => {
-  const response = await apiClient.get<unknown>(`/api/analyze/${resumeId}/analyze`);
+  const response = await apiClient.get<unknown>(`/api/analyze/${resumeId}`);
   const data = response.data as {
     success?: boolean;
     resumeRes?: {

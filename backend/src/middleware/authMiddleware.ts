@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import { prisma } from "../config/db";
+import { CreatedUserSchema } from "../utils/validation";
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -27,21 +28,24 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
         const clerkUser = await clerkClient.users.getUser(userId);
         const email = clerkUser.emailAddresses[0]?.emailAddress || `${userId}@example.com`;
         
+        const validatedUser = CreatedUserSchema.parse({
+          id: userId,
+          email: email,
+        });
+
         user = await prisma.user.create({
-          data: {
-            id: userId,
-            email: email,
-          },
+          data: validatedUser,
         });
         console.log(`Synced new user from Clerk: ${email} (ID: ${userId})`);
       } catch (clerkErr) {
         console.error("Failed to sync user from Clerk:", clerkErr);
         // Fallback: create user with placeholder email to avoid blocking flow
+        const fallbackUser = CreatedUserSchema.parse({
+          id: userId,
+          email: `user_${userId}@placeholder.com`,
+        });
         user = await prisma.user.create({
-          data: {
-            id: userId,
-            email: `user_${userId}@placeholder.com`,
-          },
+          data: fallbackUser,
         });
       }
     }

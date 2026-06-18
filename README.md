@@ -35,7 +35,7 @@ graph TD
         Auth["authMiddleware using getAuth(req)"]
         UploadRoute["POST /api/resume/upload"]
         AnalyzeRoute["POST /api/analyze/:id"]
-        ResultRoute["GET /api/analyze/:id/analyze"]
+        ResultRoute["GET /api/analyze/:id"]
         UploadCtrl["uploadResumeController"]
         AnalyzeCtrl["analyzeResumeController"]
         ResultCtrl["getResumeResultController"]
@@ -126,7 +126,8 @@ resume_analyzer/
 |   |   |   |-- uploadResumeService.ts
 |   |   |   `-- workerService.ts
 |   |   `-- utils/
-|   |       `-- pdfParser.ts
+|   |       |-- pdfParser.ts
+|   |       `-- validation.ts
 |   |-- package.json
 |   `-- tsconfig.json
 |-- frontend/
@@ -287,7 +288,7 @@ resume_analyzer/
   - Returns `202 Accepted` while the worker processes the file.
 
 ### 4. Get Resume Analysis Result
-- **URL**: `/api/analyze/:id/analyze`
+- **URL**: `/api/analyze/:id`
 - **Method**: `GET`
 - **Auth**: Required
 - **Parameters**: Resume ID in the path.

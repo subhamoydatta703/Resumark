@@ -1,6 +1,5 @@
 import { prisma } from "../config/db";
-// import { Resume } from '../../prisma/generated/browser';
-import { extractPDFText } from "../utils/pdfParser";
+import { CreateResumeSchema } from "../utils/validation";
 
 export const createFileDB = async (
   existingfileName: string, 
@@ -21,13 +20,15 @@ export const createFileDB = async (
     return { resume: existingResume };
   }
   
+  const validatedResume = CreateResumeSchema.parse({
+    fileName: existingfileName,
+    filePath: existingfilePath,
+    originalName: originalName,
+    userId: userId,
+  });
+
   const resume = await prisma.resume.create({ 
-    data: { 
-      fileName: existingfileName, 
-      filePath: existingfilePath, 
-      originalName: originalName,
-      userId: userId,
-    },
+    data: validatedResume,
   });
   
   return { resume };

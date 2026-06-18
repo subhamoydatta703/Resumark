@@ -7,6 +7,6 @@ const router = Router();
 
 
 router.post("/:id", authMiddleware, analyzeResume);
-router.get("/:id/analyze", authMiddleware, getResumeController)
+router.get("/:id", authMiddleware, getResumeController)
 
 export default router;

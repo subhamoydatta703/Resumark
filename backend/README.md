@@ -23,6 +23,8 @@ Express 5 API for the Resume Analyzer app. It handles Clerk-authenticated upload
 - **Cache**: Redis
 - **File Uploads**: Multer
 - **AI**: Google Gemini SDK
+- **Validation**: Zod
+
 
 ---
 
@@ -63,7 +65,8 @@ backend/
 |   |   |-- uploadResumeService.ts
 |   |   `-- workerService.ts
 |   `-- utils/
-|       `-- pdfParser.ts
+|       |-- pdfParser.ts
+|       `-- validation.ts
 |-- package.json
 `-- tsconfig.json
 ```
@@ -129,7 +132,7 @@ bun run db:studio
 - Verifies the signed-in user owns the resume.
 - Enqueues a resume analysis job.
 
-### `GET /api/analyze/:id/analyze`
+### `GET /api/analyze/:id`
 - Auth required.
 - Verifies ownership and returns the latest analysis state.
 - Reads Redis cache first, then falls back to PostgreSQL.
