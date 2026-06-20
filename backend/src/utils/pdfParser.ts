@@ -5,7 +5,7 @@ import path from 'node:path';
 export async function extractPDFText(filePath: string): Promise<string> {
   let parser;
   try {
-    const fullPath = path.join(__dirname, "../../public/data", filePath);
+    const fullPath = path.join(process.cwd(), "./public/data", filePath);
     console.log("pdf file pathshowing in utils pdf parser: ", fullPath)
     const dataBuffer = await fs.readFile(fullPath);
     

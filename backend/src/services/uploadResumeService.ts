@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import { prisma } from "../config/db";
 import { CreateResumeSchema } from "../utils/validation";
 
@@ -17,7 +19,25 @@ export const createFileDB = async (
   console.log("Checking duplicate in DB: ", existingResume);
   
   if (existingResume) {
-    return { resume: existingResume };
+    // Clean up old file if it exists on disk
+    try {
+      const oldFullPath = path.join(process.cwd(), "./public/data", existingResume.filePath);
+      await fs.unlink(oldFullPath);
+    } catch (err) {
+      // Ignore if file doesn't exist
+    }
+
+    const updatedResume = await prisma.resume.update({
+      where: { id: existingResume.id },
+      data: {
+        fileName: existingfileName,
+        filePath: existingfilePath,
+        status: "PENDING",
+        analysisResult: null,
+      },
+    });
+
+    return { resume: updatedResume };
   }
   
   const validatedResume = CreateResumeSchema.parse({
