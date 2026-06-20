@@ -1,39 +1,41 @@
-# dependencies (bun install)
-node_modules
+# Dependencies (bun install)
+node_modules/
 
-# output
-out
-dist
+# Output
+out/
+dist/
 *.tgz
+*.tsbuildinfo
 
-# code coverage
-coverage
+# Code coverage
+coverage/
 *.lcov
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+# Logs
+logs/
+*.log
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# dotenv environment variable files
+# Dotenv environment variable files
 .env
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
-# caches
+# Caches
 .eslintcache
-.cache
-*.tsbuildinfo
+.cache/
 
-# IntelliJ based IDEs
-.idea
-
-# Finder (MacOS) folder config
+# IDE and OS files
+.idea/
+.vscode/
 .DS_Store
+Thumbs.db
 
-/src/generated/prisma
+# Prisma Generated Clients
+/prisma/generated/
+/src/generated/prisma/
 
 # Uploaded resumes
 /public/data/uploads/*

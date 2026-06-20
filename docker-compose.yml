@@ -4,3 +4,44 @@ services:
     container_name: resume-analyzer-redis
     ports:
       - "6379:6379"
+
+  api:
+    build:
+      context: ./backend
+    container_name: resume-analyzer-api
+    env_file:
+      - ./backend/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+
+  worker:
+    build:
+      context: ./backend
+    container_name: resume-analyzer-worker
+    command: bun run src/services/workerService.ts
+    env_file:
+      - ./backend/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+        - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY:-pk_test_c291bmQtcmVkZmlzaC05Ny5jbGVyay5hY2NvdW50cy5kZXYk}
+    container_name: resume-analyzer-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+

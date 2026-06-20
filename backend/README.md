@@ -1,156 +1,191 @@
-# Backend
+# Resume Analyzer - Backend
 
-Express 5 API for the Resume Analyzer app. It handles Clerk-authenticated uploads, queues resume analysis jobs, stores resume data in PostgreSQL through Prisma, and processes PDFs and Gemini analysis through a BullMQ worker.
+The backend of the **Resume Analyzer** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
+
+---
 
 ## What It Does
 
-- Accepts authenticated PDF uploads.
-- Persists resume metadata and file paths in PostgreSQL.
-- Enqueues analysis jobs for background processing.
-- Extracts PDF text and sends it to Google Gemini for structured analysis.
-- Caches completed analysis results in Redis.
+- **Secure API Endpoints**: Restricts routes to requests authorized by **Clerk Express** JSON Web Tokens (JWT).
+- **Asynchronous User Sync**: Processes user creation, update, and deletion lifecycle events sent via secure Clerk webhooks validated with **Svix** signatures.
+- **Queue Pipeline**: Offloads intensive PDF text extraction and AI parsing to a background worker using **BullMQ** and **Redis**.
+- **Gemini Structured Output**: Translates raw text parsed from PDFs into a validated JSON schema containing formatting scores, ATS recommendations, technical match details, and profile data.
+- **Fast Lookup Cache**: Caches successfully completed resume analyses inside a **Redis Cache** for near-instant retrieval.
 
 ---
 
 ## Tech Stack
 
-- **Runtime**: Bun
+- **Runtime**: Bun 1.x
 - **Framework**: Express 5
-- **Auth**: Clerk Express
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Queue**: BullMQ
-- **Cache**: Redis
-- **File Uploads**: Multer
-- **AI**: Google Gemini SDK
-- **Validation**: Zod
-- **Webhooks Verification**: Svix
-
+- **Authentication**: `@clerk/express` & `svix` (webhook verification)
+- **Database ORM**: Prisma Client (using `@prisma/adapter-pg` driver)
+- **Primary Database**: PostgreSQL
+- **Task Queue**: BullMQ
+- **Caching & Queue Store**: Redis (powered by `ioredis` and `redis` client libraries)
+- **File Upload Engine**: Multer (configured with mime-type validations)
+- **Parsing Libraries**: `pdf-parse`
+- **AI SDK**: `@google/genai` (Gemini API)
+- **Validation**: Zod (for validation of webhook payloads and JSON schemas)
 
 ---
 
-## Folder Structure
+## Directory Structure
 
 ```
 backend/
-|-- prisma/
-|   |-- migrations/
-|   `-- schema.prisma
-|-- public/
-|   `-- data/
-|       `-- uploads/
-|           `-- .gitkeep
-|-- src/
-|   |-- app.ts
-|   |-- server.ts
-|   |-- config/
-|   |   |-- db.ts
-|   |   |-- redis.bullmq.ts
-|   |   |-- redis.caching.ts
-|   |   `-- workerDB.ts
-|   |-- controllers/
-|   |   |-- analyzeResumeController.ts
-|   |   |-- getResumeResultController.ts
-|   |   `-- uploadResumeController.ts
-|   |-- middleware/
-|   |   |-- authMiddleware.ts
-|   |   `-- multerMiddleware.ts
-|   |-- queues/
-|   |   `-- resume.queue.ts
-|   |-- routes/
-|   |   |-- multerRoutes.ts
-|   |   |-- resumeAnalysisRoutes.ts
-|   |   `-- webhookRoutes.ts
-|   |-- services/
-|   |   |-- clerkWebhookVerficationSerivce.ts
-|   |   |-- geminiService.ts
-|   |   |-- getResumeService.ts
-|   |   |-- handleClerkWebhookEvent.ts
-|   |   |-- resumeAnalysisService.ts
-|   |   |-- uploadResumeService.ts
-|   |   `-- workerService.ts
-|   `-- utils/
-|       |-- pdfParser.ts
-|       `-- validation.ts
-|-- package.json
-`-- tsconfig.json
+├── prisma/
+│   ├── migrations/            # SQL migration history files
+│   └── schema.prisma          # Database schema models (User, Resume, status enums)
+├── public/
+│   └── data/
+│       └── uploads/           # Destination for uploaded PDF files (ignored)
+│           └── .gitkeep       # Keeps directory in git
+├── src/
+│   ├── app.ts                 # Express app initialization & middleware registration
+│   ├── server.ts              # Server startup and listening socket
+│   ├── config/
+│   │   ├── db.ts              # PostgreSQL database client with Prisma adapter
+│   │   ├── redis.bullmq.ts    # Redis client configuration for BullMQ
+│   │   ├── redis.caching.ts   # Redis client configuration for result caching
+│   │   └── workerDB.ts        # Database client dedicated to the worker thread
+│   ├── controllers/
+│   │   ├── analyzeResumeController.ts # Queue triggering handler
+│   │   ├── getResumeResultController.ts # Results querying handler
+│   │   └── uploadResumeController.ts  # File write orchestrator
+│   ├── middleware/
+│   │   ├── authMiddleware.ts    # Extract Clerk auth state and assign req.auth
+│   │   └── multerMiddleware.ts  # Multer setup defining limits and folders
+│   ├── queues/
+│   │   └── resume.queue.ts      # BullMQ queue instantiator
+│   ├── routes/
+│   │   ├── multerRoutes.ts      # Router for uploads
+│   │   ├── resumeAnalysisRoutes.ts # Router for queue trigger & fetch
+│   │   └── webhookRoutes.ts     # Router for Clerk webhooks
+│   ├── services/
+│   │   ├── clerkWebhookVerficationSerivce.ts # Signature checking via Svix
+│   │   ├── geminiService.ts             # Gemini SDK calls for structured JSON reviews
+│   │   ├── getResumeService.ts          # Cache-first database retriever
+│   │   ├── handleClerkWebhookEvent.ts   # Event-based User model operations (upsert/delete)
+│   │   ├── resumeAnalysisService.ts     # PDF parsing and Gemini controller pipeline
+│   │   ├── uploadResumeService.ts       # Database Resume record generation
+│   │   └── workerService.ts             # BullMQ worker thread implementation
+│   └── utils/
+│       ├── pdfParser.ts                 # Extracts text lines from PDF buffers
+│       └── validation.ts                # Validation helper functions
+├── Dockerfile                 # Multi-stage Bun base container configuration
+├── package.json               # Package declarations and commands
+└── tsconfig.json              # TypeScript engine configurations
 ```
 
 ---
 
-## Important Flow
+## Environment Configuration
 
-1. The client sends a Clerk-authenticated request to the API.
-2. `clerkMiddleware()` populates request auth state.
-3. `authMiddleware` reads `getAuth(req)` and attaches the user ID for downstream handlers.
-4. Upload requests save the PDF to `public/data/uploads/` and create a database record.
-5. Analysis requests enqueue a BullMQ job.
-6. The worker extracts text, calls Gemini, stores the result, and updates status.
-7. Result requests return cached or database-backed analysis data.
-
----
-
-## Environment Variables
-
-Create `backend/.env`:
+Configure your environment by creating a `.env` file in the `backend/` directory:
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
-WORKER_DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
-GEMINI_API_KEY="your-gemini-api-key"
+# Database Connections
+DATABASE_URL="postgresql://username:password@localhost:5432/db_name?sslmode=disable"
+WORKER_DATABASE_URL="postgresql://username:password@localhost:5432/db_name?sslmode=disable"
+
+# Redis Server Configuration
+REDIS_HOST="localhost"
+REDIS_PORT=6379
+
+# Google Gemini Credentials
+GEMINI_API_KEY="AIzaSy..."
+
+# Allowed CORS Origins (comma-separated list)
 FRONTEND_URL="http://localhost:5173,http://localhost:3000"
+
+# Clerk Application Keys
 CLERK_PUBLISHABLE_KEY="pk_test_..."
 CLERK_SECRET_KEY="sk_test_..."
+
+# Clerk Webhook Secret (from Clerk Dashboard -> Webhooks -> Select webhook -> Copy Secret)
+CLERK_WEBHOOK_SECRET="whsec_..."
+
+# App Configuration
 PORT=5000
+NODE_ENV=development
 ```
 
 ---
 
-## Scripts
+## Scripts & Database Commands
+
+Install dependencies and start services locally with the following scripts:
 
 ```bash
+# Install packages
 bun install
-bun run dev
-bun run start
+
+# Apply migrations and verify the DB schema structure is up-to-date
 bun run db:push
+
+# Generate a new migration schema (when changes occur in schema.prisma)
 bun run db:migrate
+
+# Start the Prisma Studio GUI client on http://localhost:5555
 bun run db:studio
+
+# Run the Express API server with live watch reload
+bun run dev
+
+# Run the background Queue Worker service in another terminal shell
+bun run src/services/workerService.ts
+
+# Start the Express API in production mode (no reload tracking)
+bun run start
 ```
 
-- `bun run dev` starts the API server with watch mode.
-- `bun run start` runs the API server without watch mode.
-- `bun run src/services/workerService.ts` starts the worker in a second terminal.
+---
+
+## API Endpoints
+
+### 1. Health and Connection Diagnostics
+- **Route**: `GET /health`
+- **Auth**: None
+- **Details**: Validates database and runtime connectivity.
+
+### 2. Resume File Upload
+- **Route**: `POST /api/resume/upload`
+- **Auth**: Authorized (Bearer Token required)
+- **Payload**: `multipart/form-data` with `resume` file field (PDF format only, max 5MB).
+- **Details**: Validates, writes files to `public/data/uploads/`, and creates a database row marked `PENDING`.
+
+### 3. Initiate Resume Analysis
+- **Route**: `POST /api/analyze/:id`
+- **Auth**: Authorized (Bearer Token required)
+- **Details**: Verifies user ownership and enqueues a job in BullMQ. Returns `202 Accepted` to immediately free the client.
+
+### 4. Fetch Analysis Result
+- **Route**: `GET /api/analyze/:id`
+- **Auth**: Authorized (Bearer Token required)
+- **Details**: Checks ownership, queries Redis cache for hits, falls back to PostgreSQL, and returns the result details.
+
+### 5. Clerk User Webhook Sync
+- **Route**: `POST /api/webhooks/clerk`
+- **Auth**: Svix signatures validated using `CLERK_WEBHOOK_SECRET`
+- **Details**: Listens for `user.created`, `user.updated`, and `user.deleted` events. Upserts/Deletes database users.
 
 ---
 
-## API Routes
+## Docker Deployment
 
-### `GET /health`
-- Checks API and database connectivity.
+The backend application is fully containerized. A single Dockerfile handles both the API server and worker services.
 
-### `POST /api/resume/upload`
-- Auth required.
-- Accepts `multipart/form-data` with a `resume` file field.
-- Stores the uploaded PDF and creates a resume record.
+### Running with Docker
 
-### `POST /api/analyze/:id`
-- Auth required.
-- Verifies the signed-in user owns the resume.
-- Enqueues a resume analysis job.
+1. **API Server Container**:
+   ```bash
+   docker build -t resume-analyzer-backend ./backend
+   docker run -d -p 5000:5000 --env-file ./backend/.env --name resume-api resume-analyzer-backend
+   ```
 
-### `GET /api/analyze/:id`
-- Auth required.
-- Verifies ownership and returns the latest analysis state.
-- Reads Redis cache first, then falls back to PostgreSQL.
-
-### `POST /api/webhooks/clerk`
-- Signature verification (Svix headers).
-- Processes Clerk user lifecycle events asynchronously.
-
----
-
-## Notes
-
-- Uploaded files are stored under `backend/public/data/uploads/`.
-- The uploads directory is kept in git with `.gitkeep`, while actual PDFs are ignored.
-- If auth fails with `Unauthorized: Missing authentication credentials`, check the Clerk environment variables and whether the frontend is sending a valid session token.
+2. **Queue Worker Container**:
+   You can run the same image as a worker container by overriding the default command:
+   ```bash
+   docker run -d --env-file ./backend/.env --name resume-worker resume-analyzer-backend bun run src/services/workerService.ts
+   ```

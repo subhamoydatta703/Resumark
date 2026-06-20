@@ -1,0 +1,18 @@
+# Ignore node_modules and local builds
+node_modules
+*.tsbuildinfo
+.env
+
+# Ignore git metadata
+.git
+.gitignore
+
+# Ignore local upload files (keep the directory structure if needed, but not user uploads)
+public/data/uploads/*
+!public/data/uploads/.gitkeep
+
+# Ignore logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*

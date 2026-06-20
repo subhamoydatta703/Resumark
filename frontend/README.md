@@ -1,114 +1,125 @@
-# Frontend
+# Resume Analyzer - Frontend
 
-React + Vite frontend for the Resume Analyzer app. It provides the Clerk sign-in flow, a responsive upload experience, live pending analysis states, and the final dashboard for viewing scores and parsed resume details.
+The frontend of the **Resume Analyzer** application is built with **React 19**, **TypeScript**, and **Vite**. It provides a sleek, responsive workspace for uploading PDF resumes, monitoring the analysis pipeline status, and viewing AI-driven insights on a premium dark-themed dashboard.
 
-## What It Does
+---
 
-- Shows an unauthenticated landing page with sign-in.
-- Handles Clerk sign-in and user session state.
-- Uploads PDF resumes to the backend with authenticated requests.
-- Shows upload progress, pending scan steps, and analysis results.
-- Supports light and dark themes with a shared shell layout.
+## Key Features
+
+- **User Authentication**: Secured with **Clerk React** for user login, sign-up, and session state.
+- **Dynamic File Uploader**: Features an interactive drag-and-drop file uploader with immediate size validation, file-type constraints, and upload progress tracking.
+- **Live Scanner Animation**: Displays real-time status steps (`Uploading`, `Processing`, `Completed`, `Failed`) using a poll-based mechanism that queries the backend queue.
+- **Rich Dashboard Insights**: Displays structured assessment categories (e.g., overall score, ATS score, suggested roles, strengths, improvements) in a high-fidelity tabbed interface.
+- **Responsive Layout**: Designed from the ground up using **Tailwind CSS v3** to ensure fluid scalability from mobile layouts to ultra-wide desktop monitors.
+- **Dual-Theme Support**: Includes toggle capability for Light and Dark themes, persists choices via `localStorage`, and updates the root system class list.
 
 ---
 
 ## Tech Stack
 
-- **Framework**: React 19
-- **Build Tool**: Vite
-- **Auth UI**: Clerk React
-- **Styling**: Tailwind CSS v3
-- **HTTP Client**: Axios
+- **Framework**: React 19 (Functional Components & Hooks)
+- **Bundler / Dev Server**: Vite 8
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v3 & PostCSS
+- **Authentication**: `@clerk/clerk-react`
+- **HTTP Client**: Axios (configured with automated headers & base paths)
 - **Icons**: Lucide React
 
 ---
 
-## Folder Structure
+## Project Structure
 
 ```
 frontend/
-|-- public/
-|   |-- favicon.svg
-|   `-- icons.svg
-|-- src/
-|   |-- assets/
-|   |-- components/
-|   |   |-- AnalysisDashboard.tsx
-|   |   |-- PageShell.tsx
-|   |   |-- PendingScanner.tsx
-|   |   `-- ResumeUploader.tsx
-|   |-- pages/
-|   |   `-- UploadPage.tsx
-|   |-- services/
-|   |   `-- api.ts
-|   |-- types/
-|   |   `-- index.ts
-|   |-- App.tsx
-|   |-- index.css
-|   `-- main.tsx
-|-- package.json
-|-- tailwind.config.js
-|-- vite.config.ts
-`-- tsconfig.json
+├── public/
+│   ├── favicon.svg          # Application favicon
+│   └── icons.svg            # Custom SVG sprite / assets
+├── src/
+│   ├── assets/              # Static styling assets & images
+│   ├── components/
+│   │   ├── AnalysisDashboard.tsx  # Dynamic dashboard with tabs for scores & analysis
+│   │   ├── PageShell.tsx          # Shared navigation and layout shell
+│   │   ├── PendingScanner.tsx     # Custom animated processing states
+│   │   └── ResumeUploader.tsx     # File selector card with progress states
+│   ├── pages/
+│   │   └── UploadPage.tsx         # Main container orchestrating app views
+│   ├── services/
+│   │   └── api.ts                 # Axios API configurations and background polling logic
+│   ├── types/
+│   │   └── index.ts               # Global TypeScript typings for schema and API payloads
+│   ├── App.tsx                    # Root routing component and theme provider
+│   ├── index.css                  # Core design tokens and custom CSS overrides
+│   └── main.tsx                   # Render entrypoint
+├── Dockerfile                 # Multi-stage production Docker build (Bun -> Nginx)
+├── nginx.conf                 # Nginx custom configuration for Single Page App routing
+├── package.json               # Package dependencies & scripts
+├── tailwind.config.js         # Tailwind styling configs
+├── vite.config.ts             # Vite server & bundler configuration
+└── tsconfig.json              # TypeScript compilation rules
 ```
 
 ---
 
-## Main UI Flow
+## Environment Configuration
 
-1. Users land on the Clerk-aware marketing page when signed out.
-2. After signing in, the app switches to the upload workspace.
-3. The uploader validates the selected file and posts it to the backend.
-4. The pending scanner shows analysis progress while the worker processes the resume.
-5. The dashboard renders the final analysis, scores, strengths, improvements, and experience details.
-
----
-
-## Environment Variables
-
-Create `frontend/.env`:
+To run the frontend app, create a `.env` file in the `frontend/` directory with the following variables:
 
 ```env
+# URL of the backend Express API server
 VITE_API_URL="http://localhost:5000"
+
+# Publishable key from your Clerk dashboard
 VITE_CLERK_PUBLISHABLE_KEY="pk_test_..."
 ```
 
-- `VITE_API_URL` points the frontend to the backend API.
-- `VITE_CLERK_PUBLISHABLE_KEY` is required for Clerk authentication.
-
 ---
 
-## Scripts
+## Available Scripts
+
+Use the following commands inside the `frontend/` directory to manage local development:
 
 ```bash
+# Install package dependencies
 bun install
+
+# Start the Vite local development server (typically on http://localhost:5173)
 bun run dev
+
+# Compile TypeScript and build production assets into the `dist/` directory
 bun run build
+
+# Run ESLint checking on files
 bun run lint
+
+# Preview the built production assets locally
 bun run preview
 ```
 
-- `bun run dev` starts the local Vite dev server.
-- `bun run build` creates the production build.
-- `bun run lint` checks the frontend source with ESLint.
-- `bun run preview` previews the production build locally.
+---
+
+## Production & Docker Deployment
+
+The frontend uses a multi-stage Docker build to build the code and serve it efficiently via Nginx.
+
+### Building & Running Standalone with Docker
+
+Because Vite packages environment variables at build-time, you must pass them as `--build-arg` options during the build process:
+
+```bash
+# Build the Docker image
+docker build \
+  --build-arg VITE_API_URL="http://localhost:5000" \
+  --build-arg VITE_CLERK_PUBLISHABLE_KEY="pk_test_..." \
+  -t resume-analyzer-frontend .
+
+# Run the container (exposing Nginx on port 3000)
+docker run -d -p 3000:80 --name resume-frontend resume-analyzer-frontend
+```
 
 ---
 
-## Component Overview
+## Developer Guidelines
 
-- `App.tsx`: Top-level auth routing and theme state.
-- `PageShell.tsx`: Shared responsive shell for the app layout.
-- `UploadPage.tsx`: Main authenticated workspace and state routing.
-- `ResumeUploader.tsx`: Drag-and-drop upload card with validation and progress.
-- `PendingScanner.tsx`: Animated processing state while analysis runs.
-- `AnalysisDashboard.tsx`: Final analysis view with scores, tabs, and resume details.
-- `services/api.ts`: Axios client, auth token injection, upload/analyze polling, and parsing helpers.
-
----
-
-## Notes
-
-- Requests rely on the Clerk session token from `useAuth().getToken()`.
-- If the backend returns `Unauthorized: Missing authentication credentials`, make sure the user is signed in and `VITE_CLERK_PUBLISHABLE_KEY` matches the Clerk app used by the backend.
-- The UI is designed to be responsive on mobile and desktop without requiring any special setup.
+- **Authorization Tokens**: All api calls made via `services/api.ts` must obtain a Clerk JWT token. This is handled dynamically via `registerGetToken(getToken)` inside `App.tsx`.
+- **Responsive Sizing**: Keep Tailwind grids and layouts flexible. Use classes like `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` to avoid breaking layouts.
+- **Routing**: This frontend is a single-page application. The included `nginx.conf` ensures that deep links fallback to `index.html` correctly.
