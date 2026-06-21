@@ -4,13 +4,14 @@ import { extractPDFText } from "../utils/pdfParser";
 import { analyzeWithGemini } from "./geminiService";
 import { redisClient } from "../config/redis.caching";
 import { AnalysisResultSchema } from "../utils/validation";
+import { getFile } from "./storage/s3StorageService";
 
 export const analyzeThisResume = async (thisFileID: string) => {
     
     try {
         const resume = await workerPrisma.resume.findUnique({
             where: { id: thisFileID },
-            select: { status: true, analysisResult: true, filePath: true }
+            select: { status: true, analysisResult: true, s3Key: true }
         });
         
         if (!resume) {
@@ -23,7 +24,8 @@ export const analyzeThisResume = async (thisFileID: string) => {
                 : JSON.stringify(resume.analysisResult);
         }
         
-        const extractedData = await extractPDFText(resume.filePath);
+        const fileBuffer = await getFile(resume.s3Key);
+        const extractedData = await extractPDFText(fileBuffer);
         const analyzedData = await analyzeWithGemini(extractedData);
         
         let cleanText = analyzedData.trim();

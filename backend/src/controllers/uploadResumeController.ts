@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { createFileDB } from "../services/uploadResumeService";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
+import { uploadFile } from "../services/storage/s3StorageService";
 
 export const uploadResume = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -10,14 +11,17 @@ export const uploadResume = async (req: AuthenticatedRequest, res: Response) => 
         message: "No file uploaded",
       });
     }
-    const existFileName = req.file?.filename;
-    const originalName = req.file?.originalname;
-    const relativePath = `uploads/${req.file?.filename}`
-    
-    // Extract authenticated user ID from request
+    const originalName = req.file.originalname;
     const userId = req.userId!;
     
-    const fileData = await createFileDB(existFileName, relativePath, originalName, userId);
+    // Generate S3 key
+    const s3Key = `resumes/${Date.now()}-${originalName}`;
+    
+    // Upload to S3
+    const uploadedKey = await uploadFile(req.file.buffer, s3Key);
+    
+    // Save to DB
+    const fileData = await createFileDB(uploadedKey, originalName, userId);
 
     console.log("fileData from uploadResume controller", JSON.stringify(fileData, null, 2));
 

@@ -1,11 +1,9 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { prisma, Prisma } from "../config/db";
 import { CreateResumeSchema } from "../utils/validation";
+import { deleteFile } from "./storage/s3StorageService";
 
 export const createFileDB = async (
-  existingfileName: string, 
-  existingfilePath: string, 
+  s3Key: string, 
   originalName: string,
   userId: string
 ) => {
@@ -19,19 +17,18 @@ export const createFileDB = async (
   console.log("Checking duplicate in DB: ", existingResume);
   
   if (existingResume) {
-    // Clean up old file if it exists on disk
+    // Clean up old file from S3
     try {
-      const oldFullPath = path.join(process.cwd(), "./public/data", existingResume.filePath);
-      await fs.unlink(oldFullPath);
+      await deleteFile(existingResume.s3Key);
     } catch (err) {
-      // Ignore if file doesn't exist
+      console.error("Failed to delete old file from S3:", err);
     }
 
     const updatedResume = await prisma.resume.update({
       where: { id: existingResume.id },
       data: {
-        fileName: existingfileName,
-        filePath: existingfilePath,
+        fileName: originalName,
+        s3Key: s3Key,
         status: "PENDING",
         analysisResult: Prisma.DbNull,
       },
@@ -41,8 +38,8 @@ export const createFileDB = async (
   }
   
   const validatedResume = CreateResumeSchema.parse({
-    fileName: existingfileName,
-    filePath: existingfilePath,
+    fileName: originalName,
+    s3Key: s3Key,
     originalName: originalName,
     userId: userId,
   });
@@ -77,7 +74,7 @@ export const updateResumeService = async (resumeID: string, userId: string, data
 export const deleteResumeService = async (resumeID: string, userId: string) => {
   const resume = await prisma.resume.findUnique({
     where: { id: resumeID },
-    select: { userId: true },
+    select: { userId: true, s3Key: true },
   });
 
   if (!resume) {
@@ -88,25 +85,30 @@ export const deleteResumeService = async (resumeID: string, userId: string) => {
     throw new Error("Unauthorized: You do not own this resume");
   }
 
+  // Delete from S3
+  try {
+    await deleteFile(resume.s3Key);
+  } catch (err) {
+    console.error("Error deleting from S3 during delete service: ", err);
+  }
+
   return await prisma.resume.delete({
     where: { id: resumeID },
   });
 };
 
-
-
-export const getFilePathFromDB = async ( fileID: string ) => {
+export const getS3KeyFromDB = async ( fileID: string ) => {
     try {
       const file = await prisma.resume.findUnique({
           where: { id: fileID },
-          select: { filePath: true },
+          select: { s3Key: true },
       });
       if (!file) {
         throw new Error("File not found");
       }
-      return file.filePath;
+      return file.s3Key;
     } catch (error) {
-      console.error("Error while get file path from DB in service", error);
+      console.error("Error while get S3 key from DB in service", error);
       throw error;
     }
 }

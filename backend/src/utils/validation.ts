@@ -52,7 +52,7 @@ export const ResumeSchema = z.object({
     id: z.string().cuid().optional(),
     fileName: z.string().min(1, "File name is required"),
     originalName: z.string().min(1, "Original name is required"),
-    filePath: z.string().min(1, "File path is required"),
+    s3Key: z.string().min(1, "S3 key is required"),
     status: ResumeStatusSchema.default("PENDING"),
     analysisResult: AnalysisResultSchema.nullable().optional(),
     userId: z.string().min(1, "Owner user id is required"),
@@ -63,6 +63,6 @@ export const ResumeSchema = z.object({
 export const CreateResumeSchema = ResumeSchema.pick({
     fileName: true,
     originalName: true,
-    filePath: true,
+    s3Key: true,
     userId: true,
 })
