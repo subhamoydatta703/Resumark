@@ -12,6 +12,7 @@ The backend of the **Resume Analyzer** application is built on **Bun** and **Exp
 - **Queue Pipeline**: Offloads intensive PDF text extraction and AI parsing to a background worker using **BullMQ** and **Redis**.
 - **Gemini Structured Output**: Translates raw text parsed from PDFs into a validated JSON schema containing formatting scores, ATS recommendations, technical match details, and profile data.
 - **Fast Lookup Cache**: Caches successfully completed resume analyses inside a **Redis Cache** for near-instant retrieval.
+- **Redis Rate Limiting**: Protects expensive endpoints (like resume uploads and AI analysis triggers) from abuse using a Redis-backed rate limiter, resolving by user ID (falling back to client IP address).
 
 ---
 
@@ -54,8 +55,9 @@ backend/
 │   │   ├── getResumeResultController.ts # Results querying handler
 │   │   └── uploadResumeController.ts  # File write orchestrator
 │   ├── middleware/
-│   │   ├── authMiddleware.ts    # Extract Clerk auth state and assign req.auth
-│   │   └── multerMiddleware.ts  # Multer setup defining limits and folders
+│   │   ├── authMiddleware.ts    # Extract Clerk auth state and assign req.userId
+│   │   ├── multerMiddleware.ts  # Multer setup defining limits and options
+│   │   └── rateLimiterMiddleware.ts # Redis-backed rate limiter with IP/user tracking
 │   ├── queues/
 │   │   └── resume.queue.ts      # BullMQ queue instantiator
 │   ├── routes/
@@ -160,6 +162,7 @@ bun run start
 ### 2. Resume File Upload
 - **Route**: `POST /api/resume/upload`
 - **Auth**: Authorized (Bearer Token required)
+- **Rate Limit**: Rate-limited via Redis (checks request count per user/IP window). Returns `429 Too Many Requests` on abuse.
 - **Payload**: `multipart/form-data` with `resume` file field (PDF format only, max 5MB).
 - **Details**: Validates and uploads the PDF file directly to AWS S3.
   * **Duplicate/Re-upload Prevention**: If a resume with the same file name already exists for the user, it deletes the old file from S3 using `deleteFile()` to free space. It then updates the database row with the new `s3Key`, resets `status` to `"PENDING"`, and clears any previous analysis results by setting `analysisResult: Prisma.DbNull` to prevent displaying stale data.
@@ -168,6 +171,7 @@ bun run start
 ### 3. Initiate Resume Analysis
 - **Route**: `POST /api/analyze/:id`
 - **Auth**: Authorized (Bearer Token required)
+- **Rate Limit**: Rate-limited via Redis (checks request count per user/IP window). Returns `429 Too Many Requests` on abuse.
 - **Details**: Verifies user ownership and enqueues a job in BullMQ. Returns `202 Accepted` to immediately free the client.
 
 ### 4. Fetch Analysis Result

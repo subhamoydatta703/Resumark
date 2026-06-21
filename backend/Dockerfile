@@ -14,11 +14,15 @@ COPY package.json bun.lock ./
 # Install dependencies (including devDependencies required for Prisma client generation)
 RUN bun install --frozen-lockfile
 
-# Copy application source code and Prisma schema
-COPY . .
+# Copy Prisma configuration and database schema first for optimized layer caching
+COPY prisma ./prisma
+COPY prisma.config.ts tsconfig.json ./
 
 # Generate the Prisma client
 RUN bunx prisma generate
+
+# Copy application source code
+COPY src ./src
 
 # Expose the default Express server port
 EXPOSE 5000

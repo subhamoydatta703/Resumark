@@ -12,6 +12,7 @@ The frontend of the **Resume Analyzer** application is built with **React 19**, 
 - **Rich Dashboard Insights**: Displays structured assessment categories (e.g., overall score, ATS score, suggested roles, strengths, improvements) in a high-fidelity tabbed interface.
 - **Responsive Layout**: Designed from the ground up using **Tailwind CSS v3** to ensure fluid scalability from mobile layouts to ultra-wide desktop monitors.
 - **Dual-Theme Support**: Includes toggle capability for Light and Dark themes, persists choices via `localStorage`, and updates the root system class list.
+- **Error & Rate Limit Handling**: Gracefully handles and displays backend-returned error messages (such as `429 Too Many Requests`) directly inside the dashboard workspace.
 
 ---
 

@@ -12,6 +12,7 @@ Users upload PDF resumes, which are parsed and enqueued for asynchronous process
 - **Asynchronous Analysis Pipeline**: Resume uploads are fast and responsive; actual processing runs in a background thread managed via a **BullMQ** task queue and a Redis broker.
 - **Cloud-Native Storage**: Leverages **AWS S3** to store resume PDFs securely and durably, removing the need for stateful volumes on the API or worker containers.
 - **AI-Driven Evaluation**: Powered by the **Google Gemini API** (`@google/genai` SDK) to parse raw text and return structured JSON reports mapping score analytics and qualitative recommendations.
+- **Redis Rate Limiting**: Protects backend endpoints (such as resume uploads and AI analysis triggers) from abuse using a Redis-backed rate limiter, resolving by Clerk `userId` (or client IP address as a fallback).
 - **Cache-First Results**: Completed analyses are cached inside **Redis** for fast fetching.
 - **Responsive Workspace Dashboard**: High-fidelity dashboard designed using **Tailwind CSS v3** featuring theme toggling (Light/Dark), upload progress bars, and tabbed score cards.
 - **Universal Containerization**: Fully dockerized environment with multi-stage builds and a unified `docker-compose.yml` config.
@@ -216,8 +217,8 @@ You can run the entire ecosystem (Redis, PostgreSQL/External, API Server, Task W
 | Route | Method | Authorization | Description |
 | :--- | :--- | :--- | :--- |
 | `/health` | `GET` | Public | Diagnoses connection health for the API and Database. |
-| `/api/resume/upload` | `POST` | Bearer Token | Accepts PDF file uploads via form data. Stores record as `PENDING`. |
-| `/api/analyze/:id` | `POST` | Bearer Token | Queues the resume ID for async processing. Returns `202 Accepted`. |
+| `/api/resume/upload` | `POST` | Bearer Token | Accepts PDF file uploads via form data. Rate-limited via Redis. Stores record as `PENDING`. |
+| `/api/analyze/:id` | `POST` | Bearer Token | Queues the resume ID for async processing. Rate-limited via Redis. Returns `202 Accepted`. |
 | `/api/analyze/:id` | `GET` | Bearer Token | Retrieves processing status or the finished JSON analysis payload. |
 | `/api/webhooks/clerk` | `POST` | Svix Signature | Handles Clerk user lifecycle updates to create or delete sync users. |
 

@@ -68,4 +68,9 @@ Thumbs.db
 /backend/prisma/generated/
 /backend/src/generated/prisma/
 
+# Vite / Build caches
+vite.config.ts.timestamp-*
+*.tsbuildinfo
+.eslintcache
+
 

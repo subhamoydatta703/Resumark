@@ -36,7 +36,3 @@ Thumbs.db
 # Prisma Generated Clients
 /prisma/generated/
 /src/generated/prisma/
-
-# Uploaded resumes
-/public/data/uploads/*
-!/public/data/uploads/.gitkeep

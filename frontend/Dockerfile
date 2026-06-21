@@ -8,8 +8,14 @@ COPY package.json bun.lock ./
 # Install dependencies using Bun
 RUN bun install --frozen-lockfile
 
-# Copy the rest of the application files
-COPY . .
+# Copy configuration files required for Vite build and TypeScript compilation
+COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
+COPY vite.config.ts tailwind.config.js postcss.config.js eslint.config.js ./
+COPY index.html ./
+
+# Copy source and public assets
+COPY public ./public
+COPY src ./src
 
 # Declare build arguments for Vite environment variables
 ARG VITE_API_URL
