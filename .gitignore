@@ -68,6 +68,4 @@ Thumbs.db
 /backend/prisma/generated/
 /backend/src/generated/prisma/
 
-# Uploaded resumes (Backend)
-/backend/public/data/uploads/*
-!/backend/public/data/uploads/.gitkeep
+

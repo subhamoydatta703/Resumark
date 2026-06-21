@@ -123,3 +123,4 @@ docker run -d -p 3000:80 --name resume-frontend resume-analyzer-frontend
 - **Authorization Tokens**: All api calls made via `services/api.ts` must obtain a Clerk JWT token. This is handled dynamically via `registerGetToken(getToken)` inside `App.tsx`.
 - **Responsive Sizing**: Keep Tailwind grids and layouts flexible. Use classes like `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` to avoid breaking layouts.
 - **Routing**: This frontend is a single-page application. The included `nginx.conf` ensures that deep links fallback to `index.html` correctly.
+- **S3 Storage Compliance**: The frontend handles file uploads via standard multi-part FormData. Files are uploaded directly to AWS S3 by the backend, meaning no client-side changes or modifications are necessary for cloud storage compatibility.

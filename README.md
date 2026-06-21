@@ -19,92 +19,84 @@ Users upload PDF resumes, which are parsed and enqueued for asynchronous process
 
 ## System Architecture
 
-The following diagram illustrates how the system's frontend, API layer, task worker, caches, databases, and external auth/AI services interact:
+The following diagram illustrates how the system's frontend, API layer, background task worker, state layers, and external auth/AI services interact:
 
 ```mermaid
-graph TD
-    subgraph Frontend["React Frontend (Nginx Container)"]
-        App["App / Clerk Auth Shell"]
-        UploadPage["UploadPage (State Orchestrator)"]
-        Uploader["ResumeUploader (Drag & Drop)"]
-        Scanner["PendingScanner (Polling Status)"]
-        Dashboard["AnalysisDashboard (Tabbed Insights)"]
-        Api["Axios API Client"]
+flowchart TB
+    subgraph Frontend["React Frontend (Client Space)"]
+        App["React App (Clerk Shell)"]
+        UploadUI["Resume Uploader & Live Scanner"]
+        DashboardUI["Analysis Dashboard"]
+        ClientAPI["Axios API Client"]
 
-        App --> UploadPage
-        UploadPage --> Uploader
-        UploadPage --> Scanner
-        UploadPage --> Dashboard
-        UploadPage --> Api
+        App --> UploadUI
+        UploadUI --> DashboardUI
+        UploadUI --> ClientAPI
     end
 
-    subgraph Backend["Express API & Worker Services (Bun Containers)"]
-        GlobalAuth["Global clerkMiddleware()"]
-        Auth["authMiddleware (Extract User ID)"]
-        UploadRoute["POST /api/resume/upload"]
-        AnalyzeRoute["POST /api/analyze/:id"]
-        ResultRoute["GET /api/analyze/:id"]
-        WebhookRoute["POST /api/webhooks/clerk"]
+    subgraph APIServer["Express API Gateway"]
+        API_GW["Express API Server"]
+        AuthMid["Clerk Authentication Middleware"]
+        UploadCtrl["Upload Resume Controller"]
+        AnalyzeCtrl["Analyze Resume Controller"]
+        ResultCtrl["Result Retriever Controller"]
+        WebhookCtrl["Clerk Webhook Handler"]
 
-        UploadCtrl["uploadResumeController"]
-        AnalyzeCtrl["analyzeResumeController"]
-        ResultCtrl["getResumeResultController"]
-        WebhookCtrl["webhookRoutes"]
+        API_GW --> AuthMid
+        AuthMid --> UploadCtrl
+        AuthMid --> AnalyzeCtrl
+        AuthMid --> ResultCtrl
+        API_GW --> WebhookCtrl
+    end
 
-        UploadSvc["uploadResumeService"]
-        AnalyzeSvc["resumeAnalysisService"]
-        GetSvc["getResumeService"]
-        WebhookVerifySvc["clerkWebhookVerificationService"]
-        WebhookHandleSvc["handleClerkWebhookEvent"]
+    subgraph QueueBroker["Task Queue (BullMQ Broker)"]
+        RedisQueue[("Redis Broker: BullMQ Tasks")]
+    end
+
+    subgraph QueueWorker["Background Worker Service"]
+        Worker["BullMQ Task Worker"]
+        Parser["PDF Parse Engine (Buffer)"]
+        GeminiService["Gemini API Service"]
         
-        Worker["workerService (BullMQ Worker)"]
-        Parser["pdfParser.ts"]
-        Gemini["geminiService.ts"]
+        Worker --> Parser
+        Worker --> GeminiService
     end
 
-    subgraph Data["Data Storage Layer"]
-        Prisma["Prisma Client"]
-        Postgres[("PostgreSQL Database")]
-        RedisQueue[("Redis: BullMQ Queue Broker")]
-        RedisCache[("Redis: Result Cache")]
+    subgraph CloudStorage["Cloud Storage (Object Store)"]
+        S3Bucket[("AWS S3 Bucket: PDF Resumes")]
     end
 
-    subgraph External["External APIs"]
-        Clerk["Clerk Auth Service"]
-        GeminiAPI["Google Gemini API"]
+    subgraph Database["Database & Caching (State Store)"]
+        Postgres[("PostgreSQL Database (Prisma ORM)")]
+        RedisCache[("Redis cache (Key-Value Store)")]
     end
 
-    %% Flows
-    Api -->|"Bearer JWT Token"| GlobalAuth
-    GlobalAuth --> Auth
-    Auth --> UploadRoute
-    Auth --> AnalyzeRoute
-    Auth --> ResultRoute
-    Clerk -->|"User Event Webhooks (Svix Signed)"| WebhookRoute
-    WebhookRoute --> WebhookCtrl
-    WebhookCtrl --> WebhookVerifySvc
-    WebhookCtrl --> WebhookHandleSvc
-    WebhookHandleSvc --> Prisma
+    subgraph External["Third-Party Cloud Services"]
+        ClerkAuth["Clerk Authentication Server"]
+        GeminiAPI["Google Gemini AI Platform"]
+    end
 
-    UploadRoute --> UploadCtrl
-    AnalyzeRoute --> AnalyzeCtrl
-    ResultRoute --> ResultCtrl
-
-    UploadCtrl --> UploadSvc
-    AnalyzeCtrl --> RedisQueue
-    ResultCtrl --> GetSvc
-
-    UploadSvc --> Prisma
-    GetSvc --> RedisCache
-    GetSvc --> Prisma
-    AnalyzeSvc --> Prisma
-    Worker --> RedisQueue
-    Worker --> AnalyzeSvc
-    AnalyzeSvc --> Parser
-    AnalyzeSvc --> Gemini
-    Gemini --> GeminiAPI
-    Prisma --> Postgres
-    Clerk --> GlobalAuth
+    %% Connections
+    ClientAPI -->|"HTTP Requests + JWT"| API_GW
+    ClerkAuth -->|"User Sync Webhooks"| WebhookCtrl
+    
+    %% Storage & DB connections
+    UploadCtrl -->|"Upload PDF Buffer"| S3Bucket
+    UploadCtrl -->|"Create PENDING record"| Postgres
+    
+    %% Queue interactions
+    AnalyzeCtrl -->|"Enqueue Job (fileID)"| RedisQueue
+    RedisQueue -->|"Poll & process jobs"| Worker
+    
+    %% Worker interactions
+    Worker -->|"Fetch PDF Buffer"| S3Bucket
+    GeminiService -->|"Analyze parsed text"| GeminiAPI
+    Worker -->|"Save parsed JSON & COMPLETE status"| Postgres
+    Worker -->|"Invalidate user cache"| RedisCache
+    
+    %% Result queries
+    ResultCtrl -->|"1. Read cache"| RedisCache
+    ResultCtrl -->|"2. Read database fallback"| Postgres
 ```
 
 ---
@@ -115,7 +107,6 @@ graph TD
 resume_analyzer/
 ├── backend/               # Bun + Express API Server & Worker
 │   ├── prisma/            # DB Schema and Migrations
-│   ├── public/uploads/    # Storage for uploaded PDFs (local testing)
 │   ├── src/               # Backend Source files (config, controllers, services)
 │   ├── Dockerfile         # Backend runtime container config
 │   └── package.json       # Backend script definitions
@@ -149,16 +140,22 @@ To run the application locally outside of Docker, you will need **Bun 1.x**, a r
    ```
 3. Configure environment variables. Create a `backend/.env` file:
    ```env
-   DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
-   WORKER_DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
-   REDIS_HOST="localhost"
-   REDIS_PORT=6379
-   GEMINI_API_KEY="your_google_gemini_api_key"
-   FRONTEND_URL="http://localhost:5173,http://localhost:3000"
-   CLERK_PUBLISHABLE_KEY="pk_test_..."
-   CLERK_SECRET_KEY="sk_test_..."
-   CLERK_WEBHOOK_SECRET="whsec_..."
-   PORT=5000
+    DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
+    WORKER_DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
+    REDIS_HOST="localhost"
+    REDIS_PORT=6379
+    GEMINI_API_KEY="your_google_gemini_api_key"
+    FRONTEND_URL="http://localhost:5173,http://localhost:3000"
+    CLERK_PUBLISHABLE_KEY="pk_test_..."
+    CLERK_SECRET_KEY="sk_test_..."
+    CLERK_WEBHOOK_SECRET="whsec_..."
+    PORT=5000
+
+    # AWS S3 Configuration
+    AWS_REGION="ap-south-1"
+    AWS_ACCESS_KEY_ID="your_aws_access_key"
+    AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
+    AWS_S3_BUCKET_NAME="your_s3_bucket_name"
    ```
 4. Generate the database client and apply the schema:
    ```bash
@@ -209,7 +206,7 @@ You can run the entire ecosystem (Redis, PostgreSQL/External, API Server, Task W
    - **API Server Endpoint**: [http://localhost:5000/health](http://localhost:5000/health)
 
 > [!NOTE]
-> The Docker Compose configuration mounts a shared named volume `uploads_data` at `/usr/src/app/public/data/uploads` inside both the `api` (Express server) and `worker` (BullMQ worker) containers. This shared volume ensures that the background worker can read the PDF files uploaded by the API container.
+> In this configuration, both the backend server and worker container use AWS S3 for storage. Make sure to supply the AWS credentials inside your `./backend/.env` file.
 
 ---
 
@@ -227,6 +224,6 @@ You can run the entire ecosystem (Redis, PostgreSQL/External, API Server, Task W
 
 ## Notes & Exclusions
 
-- **PDF Storage & Shared Volume**: Uploaded files are saved to `backend/public/data/uploads/`. In local development environments, files are ignored from Git commits. In Docker environments, this folder is backed by a shared volume so that both the API and worker containers access the exact same directory.
-- **Re-upload Cleanup**: If a user uploads a duplicate resume (same name and owner), the API deletes the previous version of the file from disk using `fs.unlink` to free space, updates the DB record with the new file path, resets the parsing state (`status: "PENDING"`), and resets the analysis field (`analysisResult: Prisma.DbNull`) to prevent displaying stale results.
+- **PDF Storage on AWS S3**: Uploaded files are uploaded directly to AWS S3 without writing staging files to local disk.
+- **Re-upload Cleanup**: If a user uploads a duplicate resume (same name and owner), the API deletes the previous version of the file from the AWS S3 bucket using `deleteFile()` to free space, updates the DB record with the new S3 key, resets the parsing state (`status: "PENDING"`), and resets the analysis field (`analysisResult: Prisma.DbNull`) to prevent displaying stale results.
 - **Cache Invalidation**: Analysis results are cached in Redis. When database updates occur or fresh analyses are completed, the corresponding entries are overwritten.

@@ -37,10 +37,6 @@ backend/
 ├── prisma/
 │   ├── migrations/            # SQL migration history files
 │   └── schema.prisma          # Database schema models (User, Resume, status enums)
-├── public/
-│   └── data/
-│       └── uploads/           # Destination for uploaded PDF files (ignored)
-│           └── .gitkeep       # Keeps directory in git
 ├── src/
 │   ├── app.ts                 # Express app initialization & middleware registration
 │   ├── server.ts              # Server startup and listening socket
@@ -109,6 +105,12 @@ CLERK_WEBHOOK_SECRET="whsec_..."
 # App Configuration
 PORT=5000
 NODE_ENV=development
+
+# AWS S3 Configuration
+AWS_REGION="ap-south-1"
+AWS_ACCESS_KEY_ID="your_aws_access_key"
+AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
+AWS_S3_BUCKET_NAME="your_s3_bucket_name"
 ```
 
 ---
@@ -153,9 +155,9 @@ bun run start
 - **Route**: `POST /api/resume/upload`
 - **Auth**: Authorized (Bearer Token required)
 - **Payload**: `multipart/form-data` with `resume` file field (PDF format only, max 5MB).
-- **Details**: Validates and writes the PDF file to `public/data/uploads/`.
-  * **Duplicate/Re-upload Prevention**: If a resume with the same file name already exists for the user, it unlinks the old physical file from disk to save space. It then updates the database row with the new filepath, resets `status` to `"PENDING"`, and clears any previous analysis results by setting `analysisResult: Prisma.DbNull` (database-level NULL) to prevent displaying stale data.
-  * **New Upload**: Creates a new database row marked `PENDING`.
+- **Details**: Validates and uploads the PDF file directly to AWS S3.
+  * **Duplicate/Re-upload Prevention**: If a resume with the same file name already exists for the user, it deletes the old file from S3 using `deleteFile()` to free space. It then updates the database row with the new `s3Key`, resets `status` to `"PENDING"`, and clears any previous analysis results by setting `analysisResult: Prisma.DbNull` to prevent displaying stale data.
+  * **New Upload**: Creates a new database row marked `PENDING` with the S3 key.
 
 ### 3. Initiate Resume Analysis
 - **Route**: `POST /api/analyze/:id`
@@ -178,8 +180,8 @@ bun run start
 
 The backend application is fully containerized. A single Dockerfile handles both the API server and worker services.
 
-### Shared Storage Volume
-When running in a multi-container environment (like Docker Compose), both the `api` service and the `worker` service must share access to the uploaded files. This is accomplished by mounting a shared Docker volume at `/usr/src/app/public/data/uploads` in both containers.
+### AWS S3 Cloud Storage
+Both the `api` service and the `worker` service connect directly to AWS S3 using the `@aws-sdk/client-s3` library, rendering the containers completely stateless. No shared volumes or local file synchronization is needed.
 
 ### Running with Docker (Manual)
 
