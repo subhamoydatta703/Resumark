@@ -1,12 +1,13 @@
 # Resume Analyzer - Backend
 
-The backend of the **Resume Analyzer** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
+The backend of the **Resume Analyzer** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, uploads PDF files directly to **AWS S3** object storage, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
 
 ---
 
 ## What It Does
 
 - **Secure API Endpoints**: Restricts routes to requests authorized by **Clerk Express** JSON Web Tokens (JWT).
+- **Stateless Cloud Storage**: Uploads PDF resumes directly to **AWS S3**, ensuring stateless horizontal scaling and durability.
 - **Asynchronous User Sync**: Processes user creation, update, and deletion lifecycle events sent via secure Clerk webhooks validated with **Svix** signatures.
 - **Queue Pipeline**: Offloads intensive PDF text extraction and AI parsing to a background worker using **BullMQ** and **Redis**.
 - **Gemini Structured Output**: Translates raw text parsed from PDFs into a validated JSON schema containing formatting scores, ATS recommendations, technical match details, and profile data.
@@ -21,6 +22,7 @@ The backend of the **Resume Analyzer** application is built on **Bun** and **Exp
 - **Authentication**: `@clerk/express` & `svix` (webhook verification)
 - **Database ORM**: Prisma Client (using `@prisma/adapter-pg` driver)
 - **Primary Database**: PostgreSQL
+- **Cloud Storage**: AWS S3 (via `@aws-sdk/client-s3` client library)
 - **Task Queue**: BullMQ
 - **Caching & Queue Store**: Redis (powered by `ioredis` and `redis` client libraries)
 - **File Upload Engine**: Multer (configured with mime-type validations)
@@ -41,6 +43,8 @@ backend/
 │   ├── app.ts                 # Express app initialization & middleware registration
 │   ├── server.ts              # Server startup and listening socket
 │   ├── config/
+│   │   ├── aws/
+│   │   │   └── s3Client.ts    # AWS S3 client configuration
 │   │   ├── db.ts              # PostgreSQL database client with Prisma adapter
 │   │   ├── redis.bullmq.ts    # Redis client configuration for BullMQ
 │   │   ├── redis.caching.ts   # Redis client configuration for result caching
@@ -59,6 +63,8 @@ backend/
 │   │   ├── resumeAnalysisRoutes.ts # Router for queue trigger & fetch
 │   │   └── webhookRoutes.ts     # Router for Clerk webhooks
 │   ├── services/
+│   │   ├── storage/
+│   │   │   └── s3StorageService.ts # AWS S3 storage operations (upload, get, delete)
 │   │   ├── clerkWebhookVerficationSerivce.ts # Signature checking via Svix
 │   │   ├── geminiService.ts             # Gemini SDK calls for structured JSON reviews
 │   │   ├── getResumeService.ts          # Cache-first database retriever

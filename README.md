@@ -1,6 +1,6 @@
 # Resume Analyzer
 
-A high-performance, asynchronous resume analysis and evaluation platform. The project is built with **Bun**, **Express 5**, **Prisma (PostgreSQL)**, **Redis (BullMQ & Caching)**, **Clerk Authentication**, and **React 19 + Vite**.
+A high-performance, asynchronous resume analysis and evaluation platform. The project is built with **Bun**, **Express 5**, **Prisma (PostgreSQL)**, **Redis (BullMQ & Caching)**, **AWS S3 Cloud Storage**, **Clerk Authentication**, and **React 19 + Vite**.
 
 Users upload PDF resumes, which are parsed and enqueued for asynchronous processing. A background worker evaluates the resumes against a structured JSON schema using the **Google Gemini API**, providing overall scoring, ATS evaluation, suggested roles, strengths, areas of improvement, and contact details in a premium, responsive dark-themed dashboard.
 
@@ -10,6 +10,7 @@ Users upload PDF resumes, which are parsed and enqueued for asynchronous process
 
 - **Clerk Authentication & Sync**: Seamless authentication flow on the frontend. The backend synchronizes user profile events (upsert/delete) asynchronously via **Clerk Webhooks** validated with secure **Svix** signatures.
 - **Asynchronous Analysis Pipeline**: Resume uploads are fast and responsive; actual processing runs in a background thread managed via a **BullMQ** task queue and a Redis broker.
+- **Cloud-Native Storage**: Leverages **AWS S3** to store resume PDFs securely and durably, removing the need for stateful volumes on the API or worker containers.
 - **AI-Driven Evaluation**: Powered by the **Google Gemini API** (`@google/genai` SDK) to parse raw text and return structured JSON reports mapping score analytics and qualitative recommendations.
 - **Cache-First Results**: Completed analyses are cached inside **Redis** for fast fetching.
 - **Responsive Workspace Dashboard**: High-fidelity dashboard designed using **Tailwind CSS v3** featuring theme toggling (Light/Dark), upload progress bars, and tabbed score cards.
