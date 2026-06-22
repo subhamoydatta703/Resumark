@@ -17,7 +17,7 @@ export async function analyzeWithGemini(extractedText: string): Promise<string> 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await ai.models.generateContent({
-         model: "gemini-1.5-flash",
+         model: "gemini-3.1-flash-lite",
 contents: `
 Analyze the following resume.
 
