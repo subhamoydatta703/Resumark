@@ -122,7 +122,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
           }));
         }
       }
-    }, 2000);
+    }, 3000);
 
     pollingTimerRef.current = pollInterval;
   };
