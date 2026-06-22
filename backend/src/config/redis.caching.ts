@@ -1,35 +1,38 @@
 import { createClient } from "redis";
 
-const cacheUrl =
-  process.env.REDIS_URL ||
-  `redis://${process.env.REDIS_HOST || "localhost"}:${
-    process.env.REDIS_PORT || "6379"
-  }`;
+// Trim whitespace which often causes DNS/ENOTFOUND errors when copying from Render/Upstash dashboards
+const cacheUrlString = process.env.REDIS_URL?.trim() || 
+  `redis://${process.env.REDIS_HOST || "localhost"}:${process.env.REDIS_PORT || "6379"}`;
 
-// node-redis v4+ handles `rediss://` natively, but some managed providers
-// (Upstash Valkey) may need explicit TLS socket options for strict compliance.
-const useTls = cacheUrl.startsWith("rediss://");
+const useTls = cacheUrlString.startsWith("rediss:");
 
 export const redisClient = createClient({
-  url: cacheUrl,
+  url: cacheUrlString,
   ...(useTls && {
     socket: {
       tls: true,
-      rejectUnauthorized: true,
+      rejectUnauthorized: false, // Often required for Upstash Valkey depending on the root CA
     },
   }),
 });
 
 redisClient.on("error", (err) => {
-  console.error("Redis Error:", err);
+  console.error("[Cache Redis Error]:", err.message);
 });
 
 export async function connectRedis() {
   try {
     await redisClient.connect();
-
-    console.log("Redis Connected");
-  } catch (error) {
-    console.error("Redis Connection Failed:", error);
+    
+    // Startup health check
+    const pingResponse = await redisClient.ping();
+    if (pingResponse !== "PONG") {
+      throw new Error(`Unexpected ping response: ${pingResponse}`);
+    }
+    
+    console.log("Cache Redis Connected & Health Check Passed");
+  } catch (error: any) {
+    console.error("Cache Redis Connection or Health Check Failed:", error.message);
+    process.exit(1); // Fail fast so Render can restart the service
   }
-}
+}

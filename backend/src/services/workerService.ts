@@ -1,12 +1,17 @@
 import { Worker } from "bullmq";
-import { bullRedisConnection } from "../config/redis.bullmq";
+import { bullRedisConnection, verifyBullMQConnection } from "../config/redis.bullmq";
 import { analyzeThisResume } from "./resumeAnalysisService";
 import { workerPrisma } from "../config/workerDB";
 import { connectRedis } from "../config/redis.caching";
 
-
-console.log("Worker is running.");
-connectRedis();
+async function startWorker() {
+    console.log("Worker process starting...");
+    
+    // Health checks
+    await connectRedis();
+    await verifyBullMQConnection();
+    
+    console.log("Redis connections verified. Starting BullMQ Worker...");
 
 const worker = new Worker("resume-analysis", async (job) => {
     try {
@@ -50,3 +55,7 @@ const worker = new Worker("resume-analysis", async (job) => {
 worker.on("error", (err) => {
     console.error("Worker connection/runtime error:", err);
 });
+
+}
+
+startWorker();
