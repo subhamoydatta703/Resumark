@@ -1,6 +1,6 @@
-# Resume Analyzer - Frontend
+# Resumark - Frontend
 
-The frontend of the **Resume Analyzer** application is built with **React 19**, **TypeScript**, and **Vite**. It provides a sleek, responsive workspace for uploading PDF resumes, monitoring the analysis pipeline status, and viewing AI-driven insights on a premium dark-themed dashboard.
+The frontend of the **Resumark** application is built with **React 19**, **TypeScript**, and **Vite**. It provides a sleek, responsive workspace for uploading PDF resumes, monitoring the analysis pipeline status, and viewing AI-driven insights on a premium dark-themed dashboard.
 
 ---
 

@@ -1,6 +1,6 @@
-# Resume Analyzer - Backend
+# Resumark - Backend
 
-The backend of the **Resume Analyzer** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, uploads PDF files directly to **AWS S3** object storage, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
+The backend of the **Resumark** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, uploads PDF files directly to **AWS S3** object storage, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
 
 ---
 

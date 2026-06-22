@@ -1,4 +1,4 @@
-# Resume Analyzer
+# Resumark
 
 A high-performance, asynchronous resume analysis and evaluation platform. The project is built with **Bun**, **Express 5**, **Prisma (PostgreSQL)**, **Redis (BullMQ & Caching)**, **AWS S3 Cloud Storage**, **Clerk Authentication**, and **React 19 + Vite**.
 

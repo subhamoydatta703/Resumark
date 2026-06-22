@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import type { DragEvent, ChangeEvent } from "react";
+import { AlertCircle, FileText, X, Upload } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
-import { ResumeUploader } from "../components/ResumeUploader";
 import { PendingScanner } from "../components/PendingScanner";
 import { AnalysisDashboard } from "../components/AnalysisDashboard";
 import { uploadResume, analyzeResume, getResumeDetails } from "../services/api";
@@ -26,12 +26,9 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
 
   const pollingTimerRef = useRef<number | null>(null);
 
-  // Clean up timers on unmount
   useEffect(() => {
     return () => {
-      if (pollingTimerRef.current) {
-        window.clearInterval(pollingTimerRef.current);
-      }
+      if (pollingTimerRef.current) window.clearInterval(pollingTimerRef.current);
     };
   }, []);
 
@@ -50,37 +47,21 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
       const response = await uploadResume(file, (progress) => {
         setUploadState((prev) => ({ ...prev, progress }));
       });
-
       const resumeId = response.resumeId;
-
-      setUploadState((prev) => ({
-        ...prev,
-        status: "pending",
-        resumeId,
-        error: null,
-      }));
-
-      // Start live analysis synchronously
+      setUploadState((prev) => ({ ...prev, status: "pending", resumeId, error: null }));
       startPolling(resumeId);
     } catch (err: unknown) {
-      console.error("Upload error:", err);
       const errorMessage =
         getErrorMessage(err) ||
-        "An unexpected error occurred during upload. Please verify that your backend server is active.";
-      
-      setUploadState((prev) => ({
-        ...prev,
-        status: "failed",
-        error: errorMessage,
-      }));
+        "ERROR_UPLOAD_CONNECTION_FAILED";
+      setUploadState((prev) => ({ ...prev, status: "failed", error: errorMessage }));
     }
   };
 
   const startPolling = async (resumeId: string) => {
     let attempts = 0;
-    const maxAttempts = 30; // 30 attempts * 2 seconds = 60 seconds max
+    const maxAttempts = 30;
 
-    // 1. Initial check to see if the resume has already been analyzed.
     try {
       const initialCheck = await getResumeDetails(resumeId);
       if (initialCheck.status === "COMPLETED" && initialCheck.analysisResult) {
@@ -88,31 +69,22 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
           ...prev,
           status: "completed",
           analysisResult: initialCheck.analysisResult || null,
-          error: null,
         }));
         return;
       }
-    } catch (err) {
-      console.warn("Initial check failed or still pending, triggering analysis...", err);
-    }
+    } catch (_) { /* continue */ }
 
     try {
       const response = await analyzeResume(resumeId);
-
       if (response.status === "COMPLETED" && response.analysisResult) {
         setUploadState((prev) => ({
           ...prev,
           status: "completed",
           analysisResult: response.analysisResult || null,
-          error: null,
         }));
         return;
       }
-    } catch (err: unknown) {
-      console.error("POST analysis failed, checking for updates...", err);
-      // If POST fails (e.g., timeout/network issue), the server might still process the analysis.
-      // We fall back to polling the GET endpoint below.
-    }
+    } catch (_) { /* fallback to polling */ }
 
     const pollInterval = window.setInterval(async () => {
       attempts++;
@@ -124,31 +96,29 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
             ...prev,
             status: "completed",
             analysisResult: check.analysisResult || null,
-            error: null,
           }));
         } else if (check.status === "FAILED") {
           window.clearInterval(pollInterval);
           setUploadState((prev) => ({
             ...prev,
             status: "failed",
-            error: "Resume analysis failed on the server.",
+            error: "ERROR_PARSING_FAILED",
           }));
         } else if (attempts >= maxAttempts) {
           window.clearInterval(pollInterval);
           setUploadState((prev) => ({
             ...prev,
             status: "failed",
-            error: "Analysis timed out. Please try again.",
+            error: "ERROR_TIMEOUT_EXCEEDED",
           }));
         }
       } catch (pollErr: unknown) {
-        console.error("Error during polling:", pollErr);
         if (attempts >= maxAttempts) {
           window.clearInterval(pollInterval);
           setUploadState((prev) => ({
             ...prev,
             status: "failed",
-            error: getErrorMessage(pollErr) || "Failed to retrieve analysis status.",
+            error: getErrorMessage(pollErr) || "ERROR_STATUS_RETRIEVAL_FAILED",
           }));
         }
       }
@@ -169,104 +139,295 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
     });
   };
 
-
   const isWorking = uploadState.status === "idle" || uploadState.status === "uploading";
-  const statusLabel =
-    uploadState.status === "idle"
-      ? "Ready to review"
-      : uploadState.status === "uploading"
-        ? "Uploading resume"
-        : uploadState.status === "pending"
-          ? "Processing analysis"
-          : uploadState.status === "completed"
-            ? "Analysis complete"
-            : "Action needed";
 
   return (
-    <PageShell
-      title="Resume Analyzer"
-      subtitle="Secure review workspace"
-      theme={theme}
-      toggleTheme={toggleTheme}
-      rightContent={<UserButton />}
-    >
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <section className="grid gap-6 rounded-[1.75rem] border border-white/70 bg-white/85 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:p-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-indigo-600 dark:text-indigo-400">
-              {statusLabel}
-            </p>
-            <h2 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-              Upload a resume and let the analysis flow in a clean, structured view.
-            </h2>
-            <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-              The interface is optimized for quick scanning on desktop and comfortable use on mobile, with clear progress states for upload, processing, and results.
-            </p>
-          </div>
+    <div className="flex flex-col min-h-screen">
+      <PageShell
+        title="Resumark"
+        subtitle="Structured Auditing"
+        theme={theme}
+        toggleTheme={toggleTheme}
+        rightContent={<UserButton />}
+      >
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+          <div className="flex flex-col gap-8 max-w-xl mx-auto w-full">
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoTile label="Format" value="PDF only" />
-            <InfoTile label="Output" value="ATS + skills" />
-            <InfoTile label="Status" value={statusLabel} />
-            <InfoTile label="Mode" value="Responsive UI" />
-          </div>
-        </section>
-
-        {isWorking ? (
-          <ResumeUploader uploadState={uploadState} onUpload={handleUpload} onCancel={handleReset} />
-        ) : uploadState.status === "pending" ? (
-          <div className="flex justify-center">
-            <PendingScanner resumeId={uploadState.resumeId || ""} fileName={uploadState.fileName} />
-          </div>
-        ) : uploadState.status === "completed" && uploadState.analysisResult ? (
-          <AnalysisDashboard analysisResult={uploadState.analysisResult} onReset={handleReset} fileName={uploadState.fileName} />
-        ) : (
-          <div className="mx-auto w-full max-w-xl rounded-[1.75rem] border border-rose-200/80 bg-white/90 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-rose-500/20 dark:bg-slate-950/60 sm:p-8">
-            <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
-                <AlertCircle className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-semibold text-slate-950 dark:text-white">Analysis failed</h3>
-                <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  {uploadState.error || "An error occurred while analyzing the resume."}
+            {/* ── Page heading ──────────────────────────── */}
+            {isWorking && (
+              <div className="animate-fade-up">
+                <h1 className="text-2xl font-bold tracking-tight text-primary-theme">
+                  Upload your resume
+                </h1>
+                <p className="mt-1.5 text-[14px] text-secondary-theme">
+                  Drop in a PDF to start your audit. The analysis runs in the background and results are saved to your account.
                 </p>
               </div>
-            </div>
+            )}
 
-            <button
-              type="button"
-              onClick={handleReset}
-              className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </button>
+            {/* ── Dynamic content ───────────────────────── */}
+            {isWorking ? (
+              <LocalResumeUploader
+                uploadState={uploadState}
+                onUpload={handleUpload}
+                onCancel={handleReset}
+              />
+            ) : uploadState.status === "pending" ? (
+              <div className="flex justify-center w-full">
+                <PendingScanner
+                  resumeId={uploadState.resumeId || ""}
+                  fileName={uploadState.fileName}
+                />
+              </div>
+            ) : uploadState.status === "completed" && uploadState.analysisResult ? (
+              <div className="w-full max-w-5xl">
+                <AnalysisDashboard
+                  analysisResult={uploadState.analysisResult}
+                  onReset={handleReset}
+                  fileName={uploadState.fileName}
+                />
+              </div>
+            ) : (
+              /* Secure Error Ledger Card */
+              <div className="animate-fade-up mx-auto w-full">
+                <div className="surface rounded-none border-accent-theme/40 bg-card-theme p-6 sm:p-8">
+                  <div className="flex flex-col items-center gap-4 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-none border border-accent-theme/20 bg-accent-theme/5 text-accent-theme">
+                      <AlertCircle className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-[16px] font-bold text-primary-theme uppercase tracking-wider font-mono">
+                        Audit Processing Fault
+                      </h2>
+                      <p className="mt-2 text-[13px] text-secondary-theme font-mono bg-panel-theme border border-main-theme px-3 py-1.5 rounded-none">
+                        {uploadState.error || "ERROR_UNKNOWN_EXCEPTION"}
+                      </p>
+                      <p className="mt-3 text-[13px] text-muted-theme">
+                        The document analysis process failed. Verify the file format and size, and run the validator console again.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-none bg-primary-theme text-[13px] font-semibold text-body-theme transition hover:opacity-90 border border-main-theme"
+                    >
+                      Reset and Retry
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </PageShell>
+        </div>
+      </PageShell>
+    </div>
   );
 };
 
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-white/10 dark:bg-white/5">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-slate-950 dark:text-white">{value}</p>
-    </div>
-  );
+/* ─── Local Resume Uploader ────────────────── */
+interface ResumeUploaderProps {
+  uploadState: UploadState;
+  onUpload: (file: File) => void;
+  onCancel: () => void;
 }
 
-function getErrorMessage(error: unknown): string | null {
-  if (!error || typeof error !== "object") {
-    return null;
-  }
+const LocalResumeUploader: React.FC<ResumeUploaderProps> = ({
+  uploadState,
+  onUpload,
+  onCancel,
+}) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const candidate = error as {
-    response?: { data?: { message?: string } };
-    message?: string;
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
-  return candidate.response?.data?.message || candidate.message || null;
+  const handleDrag = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(e.type === "dragenter" || e.type === "dragover");
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+    setError(null);
+    if (e.dataTransfer.files?.[0]) validateAndSetFile(e.dataTransfer.files[0]);
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    if (e.target.files?.[0]) validateAndSetFile(e.target.files[0]);
+  };
+
+  const validateAndSetFile = (file: File) => {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are supported.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File must be under 5 MB.");
+      return;
+    }
+    setError(null);
+    setSelectedFile(file);
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setError(null);
+    onCancel();
+  };
+
+  const isUploading = uploadState.status === "uploading";
+
+  return (
+    <div className="animate-fade-up w-full">
+
+      {/* Error banner */}
+      {(error || uploadState.error) && (
+        <div className="mb-3 flex items-start gap-2.5 rounded-none border border-accent-theme/20 bg-accent-theme/5 p-3.5 text-[13px] text-accent-theme font-mono">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error || uploadState.error}</span>
+        </div>
+      )}
+
+      {!selectedFile ? (
+        /* ── Drop zone ──────────────────────────── */
+        <div
+          onDragEnter={handleDrag}
+          onDragOver={handleDrag}
+          onDragLeave={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
+          }}
+          className={[
+            "cursor-pointer rounded-none border-2 border-dashed p-10 text-center transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-theme sm:p-14",
+            isDragActive
+              ? "border-accent-theme bg-panel-theme"
+              : "border-subtle-theme bg-card-theme hover:border-accent-theme",
+          ].join(" ")}
+        >
+          {/* Bare icon - no background box, wrapper, or border */}
+          <Upload className="mx-auto h-6 w-6 text-muted-theme mb-4" />
+
+          <p className="mt-4 text-[15px] font-medium text-primary-theme">
+            {isDragActive ? "Drop the PDF here" : "Drop your resume PDF here"}
+          </p>
+          <p className="mt-1 text-[13px] text-muted-theme">
+            or click to browse — PDF only, max 5 MB
+          </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={handleInputChange}
+            className="hidden"
+          />
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+            className="mt-5 inline-flex h-9 items-center justify-center rounded-none bg-primary-theme text-[13px] font-medium text-body-theme border border-main-theme px-4 transition hover:opacity-90"
+          >
+            Browse files
+          </button>
+        </div>
+      ) : (
+        /* ── File ready card ────────────────────── */
+        <div className="animate-scale-in surface rounded-none p-5 sm:p-6 border-main-theme">
+          {/* File row */}
+          <div className="flex items-center gap-3 rounded-none border border-main-theme bg-panel-theme/40 p-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none border border-main-theme bg-panel-theme text-muted-theme">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate pr-1 text-[14px] font-medium text-primary-theme font-mono" title={selectedFile.name}>
+                {selectedFile.name}
+              </p>
+              <p className="mt-0.5 text-[12px] text-muted-theme font-mono">{formatBytes(selectedFile.size)}</p>
+            </div>
+            {!isUploading && (
+              <button
+                type="button"
+                onClick={handleRemoveFile}
+                className="flex h-7 w-7 items-center justify-center rounded-none text-muted-theme transition hover:bg-panel-theme hover:text-primary-theme"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Progress */}
+          {isUploading && (
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-between text-[12px] text-muted-theme font-mono">
+                <span>Uploading…</span>
+                <span>{uploadState.progress}%</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-none bg-panel-theme">
+                <div
+                  className="h-full bg-primary-theme transition-all duration-300"
+                  style={{ width: `${uploadState.progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="mt-4 flex gap-2.5">
+            {!isUploading ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleRemoveFile}
+                  className="inline-flex h-10 flex-1 items-center justify-center rounded-none border border-main-theme bg-panel-theme text-[14px] font-medium text-secondary-theme transition hover:bg-body-theme"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpload(selectedFile)}
+                  className="inline-flex h-10 flex-1 items-center justify-center rounded-none bg-primary-theme text-[14px] font-medium text-body-theme transition hover:opacity-90 border border-main-theme"
+                >
+                  Analyze
+                </button>
+              </>
+            ) : (
+              <button
+                disabled
+                className="inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-none border border-main-theme bg-panel-theme text-[14px] text-muted-theme font-mono"
+              >
+                Processing…
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+function getErrorMessage(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const e = error as { response?: { data?: { message?: string } }; message?: string };
+  const msg = e.response?.data?.message || e.message || "";
+  if (msg.includes("upload") || msg.includes("network")) return "ERROR_UPLOAD_CONNECTION_FAILED";
+  if (msg.includes("parsing") || msg.includes("pdf")) return "ERROR_DECODING_FILE";
+  if (msg.includes("ai") || msg.includes("openai") || msg.includes("model")) return "ERROR_AI_AUDIT_UNAVAILABLE";
+  return msg ? `ERROR_${msg.replace(/\s+/g, "_").toUpperCase()}` : null;
 }

@@ -1,108 +1,111 @@
-import React, { useEffect, useState } from "react";
-import { Loader2, Check, Radar, Sparkles } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface PendingScannerProps {
   resumeId: string;
   fileName: string | null;
 }
 
-const STEPS = [
-  "Parsing document layout",
-  "Extracting resume sections",
-  "Indexing skills and competencies",
-  "Running scoring models",
+interface LogLine {
+  text: string;
+  type: "info" | "success" | "accent";
+}
+
+const TERMINAL_LOGS: LogLine[] = [
+  { text: "sys://init - initializing isolated audit engine", type: "info" },
+  { text: "[INFO] opening secure document environment", type: "info" },
+  { text: "[INFO] checking raw layout nodes and section coordinates", type: "info" },
+  { text: "[SUCCESS] document hierarchy identified successfully", type: "success" },
+  { text: "[INFO] auditing fonts, spacing, margins, and column layouts", type: "info" },
+  { text: "[INFO] executing keyword density scanner against alignment indexes", type: "info" },
+  { text: "[INFO] resolving career track categorizations", type: "info" },
+  { text: "[SUCCESS] generating structured scoring matrices", type: "success" },
+  { text: "[INFO] compiling final compliance ledger report", type: "accent" },
 ];
 
-export const PendingScanner: React.FC<PendingScannerProps> = ({
-  resumeId,
-  fileName,
-}) => {
-  const [activeStep, setActiveStep] = useState(0);
+export const PendingScanner: React.FC<PendingScannerProps> = ({ resumeId, fileName }) => {
+  const [displayedLogs, setDisplayedLogs] = useState<LogLine[]>([]);
+  const [dots, setDots] = useState("");
+  const consoleEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveStep((prev) => (prev < STEPS.length - 1 ? prev + 1 : prev));
-    }, 1500);
-    return () => clearInterval(timer);
+    let index = 0;
+    // Add logs one by one with deliberate timing
+    const nextLog = () => {
+      if (index < TERMINAL_LOGS.length) {
+        setDisplayedLogs((prev) => [...prev, TERMINAL_LOGS[index]]);
+        index++;
+        const nextDelay = 800 + Math.random() * 800; // organic delay feel
+        setTimeout(nextLog, nextDelay);
+      }
+    };
+    nextLog();
   }, []);
 
+  useEffect(() => {
+    const dotsInterval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
+    }, 400);
+    return () => clearInterval(dotsInterval);
+  }, []);
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [displayedLogs, dots]);
+
   return (
-    <div className="w-full max-w-2xl rounded-[1.75rem] border border-white/70 bg-white/90 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl animate-scale-up transition-colors dark:border-white/10 dark:bg-slate-950/60 sm:p-8">
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="flex flex-col items-center justify-center rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6 text-center dark:border-white/10 dark:bg-white/5">
-          <div className="relative flex h-24 w-24 items-center justify-center">
-            <div className="absolute inset-0 animate-ping rounded-full bg-indigo-500/10 dark:bg-indigo-400/10" />
-            <div className="absolute inset-3 rounded-full bg-indigo-500/15 blur-sm dark:bg-indigo-400/10" />
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-full border border-indigo-200 bg-white text-indigo-600 shadow-sm dark:border-indigo-500/20 dark:bg-slate-950 dark:text-indigo-300">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-              <Radar className="h-3.5 w-3.5" />
-              Processing
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
-              Analyzing resume
-            </h2>
-            <p className="mx-auto max-w-xs text-sm leading-6 text-slate-600 dark:text-slate-300">
-              We&apos;re parsing <span className="font-semibold text-slate-950 dark:text-white">{fileName || "your document"}</span> and building the report.
-            </p>
-          </div>
+    <div className="animate-scale-in w-full max-w-xl rounded border border-main-theme bg-stone-950 p-4 sm:p-5 text-stone-200 font-mono shadow-xl">
+      
+      {/* Window bar */}
+      <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-stone-800" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-stone-800" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-stone-800" />
+          <span className="ml-2 text-[11px] font-semibold tracking-wide text-stone-500 uppercase">
+            AUDIT_CONSOLE
+          </span>
         </div>
-
-        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5 sm:p-6">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3 dark:border-white/10">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                Analysis progress
-              </p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                Resume ID <span className="font-mono font-semibold text-slate-950 dark:text-white">{resumeId.slice(0, 8)}</span>
-              </p>
-            </div>
-            <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {STEPS.map((step, idx) => {
-              const isCompleted = idx < activeStep;
-              const isActive = idx === activeStep;
-              return (
-                <div
-                  key={step}
-                  className={`flex items-start gap-3 rounded-2xl border p-3 text-sm transition-colors ${
-                    isActive
-                      ? "border-indigo-200 bg-indigo-50/70 text-slate-950 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-white"
-                      : isCompleted
-                        ? "border-emerald-200 bg-emerald-50/70 text-slate-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-slate-200"
-                        : "border-transparent bg-white/70 text-slate-500 dark:bg-slate-950/30 dark:text-slate-400"
-                  }`}
-                >
-                  <div
-                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                      isCompleted
-                        ? "border-emerald-200 bg-white text-emerald-600 dark:border-emerald-500/20 dark:bg-slate-950 dark:text-emerald-300"
-                        : isActive
-                          ? "border-indigo-500 bg-indigo-600 text-white"
-                          : "border-slate-200 bg-white text-slate-400 dark:border-white/10 dark:bg-slate-950 dark:text-slate-500"
-                    }`}
-                  >
-                    {isCompleted ? <Check className="h-3.5 w-3.5" /> : idx + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium">{step}</p>
-                    <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
-                      {isActive ? "Running now" : isCompleted ? "Completed" : "Queued"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <span className="text-[10px] text-stone-500 select-none">
+          PID: {resumeId.slice(0, 7).toUpperCase()}
+        </span>
       </div>
+
+      {/* Terminal Log Console */}
+      <div className="mt-4 h-64 overflow-y-auto px-1 space-y-2 text-[12px] scrollbar-thin select-text">
+        {displayedLogs.map((log, idx) => {
+          let color = "text-stone-400";
+          if (log.type === "success") color = "text-emerald-400";
+          if (log.type === "accent") color = "text-accent-theme";
+
+          return (
+            <div key={idx} className={`leading-relaxed ${color} break-all`}>
+              {log.text}
+            </div>
+          );
+        })}
+
+        {/* Current loading prompt */}
+        {displayedLogs.length < TERMINAL_LOGS.length ? (
+          <div className="text-stone-200 flex items-center gap-1">
+            <span>running audit calculations{dots}</span>
+            <span className="inline-block w-1.5 h-3.5 bg-stone-200 animate-pulse" />
+          </div>
+        ) : (
+          <div className="text-accent-theme flex items-center gap-1">
+            <span>finalizing ledger rendering...</span>
+            <span className="inline-block w-1.5 h-3.5 bg-accent-theme animate-pulse" />
+          </div>
+        )}
+        <div ref={consoleEndRef} />
+      </div>
+
+      {/* File status bottom bar */}
+      {fileName && (
+        <div className="mt-4 border-t border-stone-850 pt-3 flex items-center justify-between text-[10px] text-stone-500">
+          <span className="truncate max-w-[280px]">FILE: {fileName}</span>
+          <span>STATUS: SECURE_SCAN</span>
+        </div>
+      )}
     </div>
   );
 };

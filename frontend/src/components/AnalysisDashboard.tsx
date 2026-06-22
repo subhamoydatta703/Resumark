@@ -1,57 +1,25 @@
 import React, { useState, type ReactNode } from "react";
 import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Link,
-  Briefcase,
-  TrendingUp,
-  CheckCircle,
-  AlertTriangle,
-  Lightbulb,
+  User, Mail, Phone, MapPin, Link,
   RefreshCw,
-  Sparkles,
 } from "lucide-react";
 import type { AnalysisResult } from "../types";
 
-interface AnalysisDashboardProps {
+interface Props {
   analysisResult: AnalysisResult;
   onReset: () => void;
   fileName: string | null;
 }
 
-const ScoreCard: React.FC<{ score: number; label: string; tone: "indigo" | "sky" | "emerald" }> = ({
-  score,
-  label,
-  tone,
-}) => {
-  const toneMap = {
-    indigo: "from-indigo-600 to-violet-500",
-    sky: "from-sky-600 to-cyan-400",
-    emerald: "from-emerald-600 to-teal-400",
-  };
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white/85 p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 dark:border-white/10 dark:bg-white/5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">{label}</p>
-      <div className="mt-3 flex items-end gap-2">
-        <span className="text-4xl font-semibold tracking-tight text-slate-950 dark:text-white">{score}</span>
-        <span className="pb-1 text-sm text-slate-500 dark:text-slate-400">/ 100</span>
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
-        <div className={`h-full rounded-full bg-gradient-to-r ${toneMap[tone]}`} style={{ width: `${score}%` }} />
-      </div>
-    </div>
-  );
+const getRatingLabel = (score: number): string => {
+  if (score >= 90) return "OPTIMAL";
+  if (score >= 75) return "STRONG";
+  if (score >= 50) return "AVERAGE";
+  return "WEAK";
 };
 
-export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
-  analysisResult,
-  onReset,
-  fileName,
-}) => {
-  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "experience" | "insights">("overview");
+export const AnalysisDashboard: React.FC<Props> = ({ analysisResult, onReset, fileName }) => {
+  const [tab, setTab] = useState<"overview" | "skills" | "experience" | "insights">("overview");
 
   const {
     overallScore = 0,
@@ -66,370 +34,333 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
     suggestedRoles = [],
   } = analysisResult || {};
 
-  const candidateInfo = analysisResult?.candidateInfo;
-  const name = candidateInfo?.name || "Candidate Profile";
-  const email = candidateInfo?.email || "Not Found";
-  const phone = candidateInfo?.phone || "Not Found";
-  const location = candidateInfo?.location || "Not Found";
-  const linkedin = candidateInfo?.linkedin || "";
-  const linkedinUrl = linkedin
-    ? linkedin.startsWith("http")
-      ? linkedin
-      : `https://${linkedin}`
-    : "";
+  const info     = analysisResult?.candidateInfo;
+  const name     = info?.name     || "Candidate";
+  const email    = info?.email    || "—";
+  const phone    = info?.phone    || "—";
+  const location = info?.location || "—";
+  const linkedin = info?.linkedin || "";
+  const linkedinHref = linkedin ? (linkedin.startsWith("http") ? linkedin : `https://${linkedin}`) : "";
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 animate-scale-up">
-      <section className="rounded-[1.75rem] border border-white/70 bg-white/90 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.24em] text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Analysis result
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-semibold tracking-tight text-slate-950 dark:text-white sm:text-4xl">
-                {name}
-              </h2>
-              <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Parsed from <span className="font-semibold text-slate-950 dark:text-white">{fileName || "Resume"}</span>
-              </p>
-            </div>
-          </div>
+    <div className="animate-scale-in w-full space-y-6">
 
-          <button
-            onClick={onReset}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-          >
-            <RefreshCw className="h-4 w-4" />
-            New analysis
-          </button>
+      {/* ── Header ────────────────────────────────── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-main-theme pb-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-accent-theme font-mono">
+            Document Audit Complete
+          </span>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-primary-theme">{name}</h1>
+          <p className="mt-0.5 text-[13px] text-muted-theme font-mono">
+            Source: {fileName || "Uploaded Resume"}
+          </p>
         </div>
-      </section>
+        <button
+          onClick={onReset}
+          className="inline-flex h-9 items-center gap-1.5 rounded border border-main-theme bg-card-theme px-4 text-[13px] font-medium text-secondary-theme transition hover:bg-panel-theme active:scale-95"
+        >
+          <RefreshCw className="h-3.5 w-3.5 text-accent-theme" />
+          New analysis
+        </button>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-        <aside className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-            <ScoreCard score={overallScore} label="Overall score" tone="indigo" />
-            <ScoreCard score={atsCompatibility} label="ATS score" tone="sky" />
-            <ScoreCard score={formattingScore} label="Formatting score" tone="emerald" />
-          </div>
-
-          <section className="rounded-[1.75rem] border border-slate-200 bg-white/85 p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-slate-400">
-              Candidate details
-            </h3>
-
-            <div className="mt-5 space-y-4">
-              <DetailRow icon={<User className="h-4 w-4" />} label="Name" value={name} />
-              <DetailRow
-                icon={<Mail className="h-4 w-4" />}
-                label="Email"
-                value={email}
-                link={email !== "Not Found" ? `mailto:${email}` : undefined}
-              />
-              <DetailRow icon={<Phone className="h-4 w-4" />} label="Phone" value={phone} />
-              <DetailRow icon={<MapPin className="h-4 w-4" />} label="Location" value={location} />
-              {linkedin && (
-                <DetailRow
-                  icon={<Link className="h-4 w-4" />}
-                  label="LinkedIn"
-                  value={linkedin}
-                  link={linkedinUrl}
-                />
-              )}
+      {/* ── Main ledger grid ──────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
+        
+        {/* Left Column: Score Instrument Panel & Tab Actions */}
+        <div className="flex flex-col gap-6">
+          
+          {/* Score Instrument Panel (Monospace, no circular gauges) */}
+          <div className="surface rounded p-5 sm:p-6 font-mono border-main-theme">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-main-theme pb-4 mb-4">
+              <div>
+                <span className="text-[9px] uppercase tracking-wider text-muted-theme font-bold">SYSTEM_AUDIT_INDEX</span>
+                <div className="text-3xl font-extrabold text-accent-theme tracking-tight mt-0.5">
+                  SCORE: {overallScore.toFixed(2)}
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] uppercase tracking-wider text-muted-theme font-bold">RATING_LEVEL</span>
+                <div className="text-base font-bold text-primary-theme mt-0.5">
+                  {getRatingLabel(overallScore)}
+                </div>
+              </div>
             </div>
-          </section>
-        </aside>
-
-        <section className="overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white/85 shadow-sm dark:border-white/10 dark:bg-white/5">
-          <div className="border-b border-slate-200/80 px-4 pt-4 dark:border-white/10 sm:px-6">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <TabButton active={activeTab === "overview"} onClick={() => setActiveTab("overview")}>
-                Overview
-              </TabButton>
-              <TabButton active={activeTab === "skills"} onClick={() => setActiveTab("skills")}>
-                Skills
-              </TabButton>
-              <TabButton active={activeTab === "experience"} onClick={() => setActiveTab("experience")}>
-                Experience
-              </TabButton>
-              <TabButton active={activeTab === "insights"} onClick={() => setActiveTab("insights")}>
-                AI insights
-              </TabButton>
+            
+            {/* Grid of sub-scores */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="border border-main-theme bg-panel-theme/40 p-3 rounded-sm">
+                <span className="text-muted-theme uppercase tracking-wider block text-[9px] font-bold">ATS_COMPATIBILITY</span>
+                <span className="text-sm font-bold text-primary-theme block mt-1">{atsCompatibility}%</span>
+              </div>
+              <div className="border border-main-theme bg-panel-theme/40 p-3 rounded-sm">
+                <span className="text-muted-theme uppercase tracking-wider block text-[9px] font-bold">FORMATTING_SCORE</span>
+                <span className="text-sm font-bold text-primary-theme block mt-1">{formattingScore}%</span>
+              </div>
             </div>
           </div>
 
-          <div className="p-5 sm:p-7">
-            {activeTab === "overview" && (
-              <div className="space-y-6 animate-scale-up">
-                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
-                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Summary</h3>
-                  <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                    {summary || "No summary details were parsed."}
-                  </p>
-                </section>
+          {/* Action Lists (Tabs & Panels) */}
+          <div className="surface rounded overflow-hidden border-main-theme">
+            
+            {/* Tab selection bar */}
+            <div className="flex border-b border-main-theme bg-panel-theme/20 overflow-x-auto scrollbar-thin">
+              {(["overview", "skills", "experience", "insights"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={[
+                    "h-11 px-5 text-[12px] font-mono uppercase tracking-wider transition-colors shrink-0",
+                    tab === t
+                      ? "border-b border-accent-theme text-accent-theme font-bold bg-card-theme"
+                      : "text-muted-theme hover:text-primary-theme",
+                  ].join(" ")}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
-                    <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Suggested roles
-                    </h4>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {suggestedRoles.length > 0 ? (
-                        suggestedRoles.map((role) => (
-                          <span
-                            key={role}
-                            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"
-                          >
-                            {role}
-                          </span>
-                        ))
-                      ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">None suggested</p>
-                      )}
-                    </div>
-                  </section>
+            {/* Tab content panel */}
+            <div className="p-5 sm:p-6">
 
-                  <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
-                    <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                      Education
-                    </h4>
-                    <div className="mt-4 space-y-4">
-                      {education.length > 0 ? (
-                        education.map((edu, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <p className="font-semibold text-slate-950 dark:text-white">
-                              {edu.degree || "Degree Studies"}
-                            </p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {edu.school || "University"} - {edu.year || "N/A"}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">None extracted</p>
-                      )}
-                    </div>
-                  </section>
-                </div>
-              </div>
-            )}
+              {tab === "overview" && (
+                <div className="animate-scale-in space-y-6">
+                  {/* Summary */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-theme font-mono block mb-2">
+                      Executive Summary
+                    </span>
+                    <p className="text-[14px] leading-relaxed text-secondary-theme">
+                      {summary || "No summary was extracted."}
+                    </p>
+                  </div>
 
-            {activeTab === "skills" && (
-              <div className="space-y-6 animate-scale-up">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
-                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Extracted skills</h3>
-                </div>
-
-                <div className="space-y-5">
-                  {skills.length > 0 ? (
-                    skills.map((skillCat) => (
-                      <section key={skillCat.category || "General"} className="space-y-3">
-                        <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">
-                          {skillCat.category || "Skills"}
-                        </h4>
-                        <div className="flex flex-wrap gap-2">
-                          {Array.isArray(skillCat.items) && skillCat.items.length > 0 ? (
-                            skillCat.items.map((skill: string) => (
-                              <span
-                                key={skill}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-200"
-                              >
-                                {skill}
-                              </span>
-                            ))
-                          ) : (
-                            <p className="text-sm text-slate-500 dark:text-slate-400">None parsed</p>
-                          )}
-                        </div>
-                      </section>
-                    ))
-                  ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">No skills mapped.</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "experience" && (
-              <div className="space-y-6 animate-scale-up">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
-                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Experience</h3>
-                </div>
-
-                <div className="space-y-6 border-l border-dashed border-slate-200 pl-5 dark:border-white/10 sm:pl-6">
-                  {experience.length > 0 ? (
-                    experience.map((exp, idx) => (
-                      <article key={idx} className="relative">
-                        <span className="absolute -left-[25px] top-1.5 h-3 w-3 rounded-full border border-indigo-300 bg-white dark:border-indigo-400 dark:bg-slate-950" />
-                        <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-white/10 dark:bg-white/5">
-                          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                            <h4 className="text-base font-semibold text-slate-950 dark:text-white">
-                              {exp.role || "Role"}
-                            </h4>
-                            <span className="inline-flex self-start rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-700 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300">
-                              {exp.duration || "N/A"}
+                  <div className="grid gap-6 sm:grid-cols-2 pt-4 border-t border-main-theme/50">
+                    {/* Suggested roles */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-theme font-mono block mb-3">
+                        Suggested Career Paths
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {suggestedRoles.length > 0 ? (
+                          suggestedRoles.map((r) => (
+                            <span
+                              key={r}
+                              className="rounded-sm border border-main-theme bg-panel-theme px-2.5 py-1 text-[11px] font-mono text-secondary-theme"
+                            >
+                              {r}
                             </span>
+                          ))
+                        ) : (
+                          <p className="text-[13px] text-muted-theme font-mono">None identified</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Education */}
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-theme font-mono block mb-3">
+                        Education History
+                      </span>
+                      <div className="space-y-3 font-mono">
+                        {education.length > 0 ? (
+                          education.map((edu, i) => (
+                            <div key={i} className="text-[12px]">
+                              <p className="font-semibold text-primary-theme">{edu.degree}</p>
+                              <p className="text-muted-theme mt-0.5">{edu.school} · {edu.year}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-[13px] text-muted-theme font-mono">None extracted</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {tab === "skills" && (
+                <div className="animate-scale-in space-y-6">
+                  {skills.length > 0 ? (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {skills.map((cat) => (
+                        <div key={cat.category} className="border border-main-theme/55 rounded p-4 bg-panel-theme/10">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-accent-theme font-mono block mb-3">
+                            {cat.category || "Skills Category"}
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cat.items?.map((s: string) => (
+                              <span
+                                key={s}
+                                className="rounded-sm border border-main-theme bg-card-theme px-2 py-0.5 text-[11px] font-mono text-secondary-theme"
+                              >
+                                {s}
+                              </span>
+                            ))}
                           </div>
-
-                          <p className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
-                            <Briefcase className="h-4 w-4" />
-                            {exp.company || "Company"}
-                          </p>
-
-                          <ul className="space-y-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-                            {Array.isArray(exp.description) ? (
-                              exp.description.map((desc: string, dIdx: number) => (
-                                <li key={dIdx} className="flex items-start gap-2">
-                                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-500" />
-                                  <span>{desc}</span>
-                                </li>
-                              ))
-                            ) : (
-                              <li className="flex items-start gap-2">
-                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300 dark:bg-slate-500" />
-                                <span>{exp.description || ""}</span>
-                              </li>
-                            )}
-                          </ul>
                         </div>
-                      </article>
-                    ))
+                      ))}
+                    </div>
                   ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">No experience parsed.</p>
+                    <p className="text-[13px] text-muted-theme font-mono">No skills identified.</p>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === "insights" && (
-              <div className="space-y-6 animate-scale-up">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-indigo-600 dark:text-indigo-300" />
-                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">AI feedback</h3>
+              {tab === "experience" && (
+                <div className="animate-scale-in space-y-5">
+                  {experience.length > 0 ? (
+                    experience.map((exp, i) => (
+                      <div key={i} className="border border-main-theme/50 rounded-sm p-4 bg-panel-theme/20">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between font-mono">
+                          <h3 className="text-[14px] font-bold text-primary-theme">{exp.role || "Role"}</h3>
+                          <span className="text-[11px] text-muted-theme">{exp.duration}</span>
+                        </div>
+                        <p className="mt-1 text-[12px] text-secondary-theme font-mono">
+                          {exp.company}
+                        </p>
+                        <ul className="mt-3.5 space-y-2">
+                          {(Array.isArray(exp.description) ? exp.description : [exp.description]).map((d: string, di: number) => (
+                            <li key={di} className="flex items-start gap-2 text-[13px] leading-relaxed text-secondary-theme">
+                              <span className="mt-2 h-1 w-1 shrink-0 bg-accent-theme" />
+                              <span className="flex-1">{d}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-muted-theme font-mono">No experience details parsed.</p>
+                  )}
                 </div>
+              )}
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <InsightCard
-                    title="Strengths"
-                    tone="emerald"
-                    icon={<CheckCircle className="h-4 w-4" />}
+              {tab === "insights" && (
+                <div className="animate-scale-in grid gap-6 sm:grid-cols-2">
+                  <InsightPanel
+                    title="Audit Strengths"
                     items={strengths}
+                    tone="green"
                   />
-                  <InsightCard
-                    title="Improvements"
-                    tone="amber"
-                    icon={<AlertTriangle className="h-4 w-4" />}
+                  <InsightPanel
+                    title="Required Actions"
                     items={improvements}
+                    tone="amber"
                   />
                 </div>
-              </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Contact Information Sidebar */}
+        <div className="surface rounded p-5 sm:p-6 border-main-theme w-full lg:sticky lg:top-20">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-theme font-mono block mb-3.5">
+            Parsed Contact Meta
+          </span>
+          <div className="space-y-1 divide-y divide-main-theme/50">
+            <ContactRow icon={<User className="h-3.5 w-3.5" />} label="Name" value={name} />
+            <ContactRow
+              icon={<Mail className="h-3.5 w-3.5" />}
+              label="Email"
+              value={email}
+              href={email !== "—" ? `mailto:${email}` : undefined}
+            />
+            <ContactRow icon={<Phone className="h-3.5 w-3.5" />} label="Phone" value={phone} />
+            <ContactRow icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={location} />
+            {linkedin && (
+              <ContactRow
+                icon={<Link className="h-3.5 w-3.5" />}
+                label="LinkedIn"
+                value="Profile link"
+                href={linkedinHref}
+              />
             )}
           </div>
-        </section>
+        </div>
+
       </div>
     </div>
   );
 };
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
-        active
-          ? "bg-slate-950 text-white shadow-sm dark:bg-white dark:text-slate-950"
-          : "bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function DetailRow({
+/* ─── Contact row ────────────────────────── */
+function ContactRow({
   icon,
   label,
   value,
-  link,
+  href,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
-  link?: string;
+  href?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
-      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-slate-600 shadow-sm dark:bg-slate-950 dark:text-slate-300">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-          {label}
-        </p>
-        {link ? (
+    <div className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 min-w-0">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-accent-theme">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <span className="text-[10px] text-muted-theme font-mono uppercase tracking-wider block">{label}</span>
+        {href ? (
           <a
-            href={link}
-            target={link.startsWith("http") ? "_blank" : undefined}
-            rel={link.startsWith("http") ? "noreferrer" : undefined}
-            className="mt-1 block break-words text-sm font-medium text-slate-950 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-300"
+            href={href}
+            target={href.startsWith("http") ? "_blank" : undefined}
+            rel="noreferrer"
+            className="text-[13px] font-mono font-medium text-accent-theme hover:underline truncate block"
           >
             {value}
           </a>
         ) : (
-          <p className="mt-1 break-words text-sm font-medium text-slate-950 dark:text-white">{value}</p>
+          <span className="text-[13px] font-mono font-medium text-primary-theme truncate block">{value}</span>
         )}
       </div>
     </div>
   );
 }
 
-function InsightCard({
+/* ─── Insight panel ──────────────────────── */
+function InsightPanel({
   title,
-  tone,
-  icon,
   items,
+  tone,
 }: {
   title: string;
-  tone: "emerald" | "amber";
-  icon: ReactNode;
   items: string[];
+  tone: "green" | "amber";
 }) {
-  const toneClasses =
-    tone === "emerald"
-      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/20 dark:bg-emerald-500/10"
-      : "border-amber-200 bg-amber-50/70 dark:border-amber-500/20 dark:bg-amber-500/10";
-  const textTone = tone === "emerald" ? "text-emerald-700 dark:text-emerald-300" : "text-amber-700 dark:text-amber-300";
+  const styles =
+    tone === "green"
+      ? {
+          border: "border-main-theme bg-panel-theme/10",
+          titleColor: "text-primary-theme border-b border-main-theme pb-2 mb-3",
+          bullet: "bg-stone-600",
+        }
+      : {
+          border: "border-accent-theme/20 bg-accent-theme/5",
+          titleColor: "text-accent-theme border-b border-accent-theme/10 pb-2 mb-3",
+          bullet: "bg-accent-theme",
+        };
 
   return (
-    <section className={`rounded-2xl border p-5 ${toneClasses}`}>
-      <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] ${textTone}`}>
-        {icon}
+    <div className={`rounded border p-4 sm:p-5 ${styles.border}`}>
+      <div className={`text-[11px] font-bold uppercase tracking-wider font-mono ${styles.titleColor}`}>
         {title}
       </div>
-      <ul className="mt-4 space-y-3">
+      <ul className="space-y-3">
         {items.length > 0 ? (
-          items.map((item, idx) => (
-            <li key={idx} className="flex items-start gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200">
-              <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${tone === "emerald" ? "bg-emerald-500" : "bg-amber-500"}`} />
-              <span>{item}</span>
+          items.map((item, i) => (
+            <li key={i} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-secondary-theme">
+              <span className={`mt-2 h-1 w-1 shrink-0 ${styles.bullet}`} />
+              <span className="flex-1">{item}</span>
             </li>
           ))
         ) : (
-          <p className="text-sm text-slate-500 dark:text-slate-400">None listed</p>
+          <p className="text-[13px] text-muted-theme font-mono">None identified</p>
         )}
       </ul>
-    </section>
+    </div>
   );
 }

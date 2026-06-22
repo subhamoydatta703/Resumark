@@ -1,13 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- Rounded Box Background matching Indigo-600 -->
-  <rect x="2" y="2" width="28" height="28" rx="7" fill="#4f46e5" />
-  
-  <!-- Four-pointed Sparkle in center using Q Beziers -->
-  <path d="M16 8 Q16 16 8 16 Q16 16 16 24 Q16 16 24 16 Q16 16 16 8 Z" fill="#ffffff" />
-  
-  <!-- Plus symbol in top right -->
-  <path d="M22 8 H26 M24 6 V10" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" />
-  
-  <!-- Circle in bottom left -->
-  <circle cx="8" cy="24" r="1.5" fill="#ffffff" />
+  <style>
+    .logo {
+      font-family: 'JetBrains Mono', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      fill: #b91c1c;
+    }
+    @media (prefers-color-scheme: dark) {
+      .logo {
+        fill: #ef4444;
+      }
+    }
+  </style>
+  <text x="16" y="16.5" text-anchor="middle" dominant-baseline="central" class="logo">[RM]</text>
 </svg>
