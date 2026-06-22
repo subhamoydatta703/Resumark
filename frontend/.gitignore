@@ -1,12 +1,3 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 # Dependencies
 node_modules/
 
@@ -14,17 +5,29 @@ node_modules/
 dist/
 dist-ssr/
 
-# Environment variables
+# Environment files
+# .env.example is allowed through — it contains only placeholder documentation.
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 *.local
 
-# Editor and OS files
-.vscode/*
-!.vscode/extensions.json
+# Vite and TypeScript caches
+.vite/
+vite.config.ts.timestamp-*
+*.tsbuildinfo
+.eslintcache
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE and operating system files
+.vscode/
 .idea/
 .DS_Store
 Thumbs.db
@@ -32,9 +35,10 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+*.swp
+*.swo
 
-# Vite and Build caches
-vite.config.ts.timestamp-*
-*.tsbuildinfo
-.eslintcache
+# Bun lockfile policy:
+# The text-format bun.lock file is committed.  The legacy binary bun.lockb
+# format is excluded because it is not human-readable in diffs.
+bun.lockb

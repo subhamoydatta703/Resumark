@@ -1,231 +1,146 @@
 # Resumark
 
-A high-performance, asynchronous resume analysis and evaluation platform. The project is built with **Bun**, **Express 5**, **Prisma (PostgreSQL)**, **Redis (BullMQ & Caching)**, **AWS S3 Cloud Storage**, **Clerk Authentication**, and **React 19 + Vite**.
+[![Bun](https://img.shields.io/badge/runtime-Bun_1.x-000000?logo=bun)](https://bun.sh/)
+[![Express](https://img.shields.io/badge/API-Express_5-000000?logo=express)](https://expressjs.com/)
+[![React](https://img.shields.io/badge/client-React_19-149ECA?logo=react)](https://react.dev/)
+[![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/deployment-Docker_Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-Users upload PDF resumes, which are parsed and enqueued for asynchronous processing. A background worker evaluates the resumes against a structured JSON schema using the **Google Gemini API**, providing overall scoring, ATS evaluation, suggested roles, strengths, areas of improvement, and contact details in a premium, responsive dark-themed dashboard.
-
----
+Resumark is an authenticated resume-analysis application that stores PDF uploads in AWS S3 and processes them asynchronously with BullMQ and Google Gemini.
 
 ## Key Features
 
-- **Clerk Authentication & Sync**: Seamless authentication flow on the frontend. The backend synchronizes user profile events (upsert/delete) asynchronously via **Clerk Webhooks** validated with secure **Svix** signatures.
-- **Asynchronous Analysis Pipeline**: Resume uploads are fast and responsive; actual processing runs in a background thread managed via a **BullMQ** task queue and a Redis broker.
-- **Cloud-Native Storage**: Leverages **AWS S3** to store resume PDFs securely and durably, removing the need for stateful volumes on the API or worker containers.
-- **AI-Driven Evaluation**: Powered by the **Google Gemini API** (`@google/genai` SDK) to parse raw text and return structured JSON reports mapping score analytics and qualitative recommendations.
-- **Redis Rate Limiting**: Protects backend endpoints (such as resume uploads and AI analysis triggers) from abuse using a Redis-backed rate limiter, resolving by Clerk `userId` (or client IP address as a fallback).
-- **Cache-First Results**: Completed analyses are cached inside **Redis** for fast fetching.
-- **Responsive Workspace Dashboard**: High-fidelity dashboard designed using **Tailwind CSS v3** featuring theme toggling (Light/Dark), upload progress bars, and tabbed score cards.
-- **Universal Containerization**: Fully dockerized environment with multi-stage builds and a unified `docker-compose.yml` config.
+Resumark provides Clerk-based authentication, PDF validation and upload, asynchronous analysis, Redis-backed rate limiting and result caching, and a responsive results dashboard. Resume files remain outside the application containers in AWS S3, while PostgreSQL stores ownership, processing state, and structured analysis results.
 
----
+The analysis report includes candidate information, a summary, extracted skills, strengths, improvement suggestions, overall and ATS scores, formatting feedback, and suggested roles.
 
 ## System Architecture
 
-The following diagram illustrates how the system's frontend, API layer, background task worker, state layers, and external auth/AI services interact:
-
 ```mermaid
-flowchart TB
-    subgraph Frontend["React Frontend (Client Space)"]
-        App["React App (Clerk Shell)"]
-        UploadUI["Resume Uploader & Live Scanner"]
-        DashboardUI["Analysis Dashboard"]
-        ClientAPI["Axios API Client"]
-
-        App --> UploadUI
-        UploadUI --> DashboardUI
-        UploadUI --> ClientAPI
-    end
-
-    subgraph APIServer["Express API Gateway"]
-        API_GW["Express API Server"]
-        AuthMid["Clerk Authentication Middleware"]
-        UploadCtrl["Upload Resume Controller"]
-        AnalyzeCtrl["Analyze Resume Controller"]
-        ResultCtrl["Result Retriever Controller"]
-        WebhookCtrl["Clerk Webhook Handler"]
-
-        API_GW --> AuthMid
-        AuthMid --> UploadCtrl
-        AuthMid --> AnalyzeCtrl
-        AuthMid --> ResultCtrl
-        API_GW --> WebhookCtrl
-    end
-
-    subgraph QueueBroker["Task Queue (BullMQ Broker)"]
-        RedisQueue[("Redis Broker: BullMQ Tasks")]
-    end
-
-    subgraph QueueWorker["Background Worker Service"]
-        Worker["BullMQ Task Worker"]
-        Parser["PDF Parse Engine (Buffer)"]
-        GeminiService["Gemini API Service"]
-        
-        Worker --> Parser
-        Worker --> GeminiService
-    end
-
-    subgraph CloudStorage["Cloud Storage (Object Store)"]
-        S3Bucket[("AWS S3 Bucket: PDF Resumes")]
-    end
-
-    subgraph Database["Database & Caching (State Store)"]
-        Postgres[("PostgreSQL Database (Prisma ORM)")]
-        RedisCache[("Redis cache (Key-Value Store)")]
-    end
-
-    subgraph External["Third-Party Cloud Services"]
-        ClerkAuth["Clerk Authentication Server"]
-        GeminiAPI["Google Gemini AI Platform"]
-    end
-
-    %% Connections
-    ClientAPI -->|"HTTP Requests + JWT"| API_GW
-    ClerkAuth -->|"User Sync Webhooks"| WebhookCtrl
-    
-    %% Storage & DB connections
-    UploadCtrl -->|"Upload PDF Buffer"| S3Bucket
-    UploadCtrl -->|"Create PENDING record"| Postgres
-    
-    %% Queue interactions
-    AnalyzeCtrl -->|"Enqueue Job (fileID)"| RedisQueue
-    RedisQueue -->|"Poll & process jobs"| Worker
-    
-    %% Worker interactions
-    Worker -->|"Fetch PDF Buffer"| S3Bucket
-    GeminiService -->|"Analyze parsed text"| GeminiAPI
-    Worker -->|"Save parsed JSON & COMPLETE status"| Postgres
-    Worker -->|"Invalidate user cache"| RedisCache
-    
-    %% Result queries
-    ResultCtrl -->|"1. Read cache"| RedisCache
-    ResultCtrl -->|"2. Read database fallback"| Postgres
+flowchart LR
+    Browser[React client] -->|Clerk token and HTTPS| API[Express API]
+    Clerk[Clerk] -->|Svix-signed webhook| API
+    API -->|Upload PDF| S3[(AWS S3)]
+    API -->|Resume metadata| Postgres[(External PostgreSQL)]
+    API -->|Enqueue file ID| Redis[(Redis)]
+    API -->|Cache reads and writes| Redis
+    Worker[BullMQ worker] -->|Consume jobs| Redis
+    Worker -->|Download PDF| S3
+    Worker -->|Structured prompt| Gemini[Google Gemini]
+    Worker -->|Status and analysis JSON| Postgres
+    Browser -->|Poll analysis status| API
 ```
 
----
+The API and worker run from the same backend container image. Redis is internal to the Compose network and provides both BullMQ transport and short-lived result caching. PostgreSQL, AWS S3, Clerk, and Gemini are external services.
 
 ## Repository Structure
 
-```
+```text
 resume_analyzer/
-├── backend/               # Bun + Express API Server & Worker
-│   ├── prisma/            # DB Schema and Migrations
-│   ├── src/               # Backend Source files (config, controllers, services)
-│   ├── Dockerfile         # Backend runtime container config
-│   └── package.json       # Backend script definitions
-├── frontend/              # React + Vite Client Application
-│   ├── public/            # Assets and HTML templates
-│   ├── src/               # React Codebase (components, pages, styles)
-│   ├── Dockerfile         # Multi-stage production client build (Bun + Nginx)
-│   ├── nginx.conf         # Nginx router configs for client
-│   └── package.json       # Frontend scripts
-├── docker-compose.yml     # Multi-service orchestration configuration
-├── .gitignore             # Global git ignores
-└── README.md              # Project documentation
+|-- backend/
+|   |-- prisma/              # Prisma schema, generated client, and migrations
+|   |-- src/                 # API, queue, worker, storage, and validation code
+|   |-- Dockerfile           # Bun builder and production runtime image
+|   `-- README.md            # Backend operations and API documentation
+|-- frontend/
+|   |-- public/              # Static assets
+|   |-- src/                 # React components, pages, services, and styles
+|   |-- Dockerfile           # Vite build and unprivileged Nginx runtime
+|   |-- nginx.conf           # Single-page application routing
+|   `-- README.md            # Frontend development documentation
+|-- .dockerignore
+|-- docker-compose.yml
+`-- README.md
 ```
 
----
+## Prerequisites
+
+Local development requires Bun 1.x, PostgreSQL, Redis, an AWS S3 bucket, a Clerk application, and a Google Gemini API key. Docker-based development additionally requires Docker Engine with Docker Compose v2. PostgreSQL is intentionally not included in `docker-compose.yml`.
 
 ## Getting Started
 
-### Option A: Local Development Setup
+### Local Development
 
-To run the application locally outside of Docker, you will need **Bun 1.x**, a running **PostgreSQL** instance, and a **Redis** instance.
+Create the backend environment file and replace every placeholder with credentials for your environment:
 
-#### 1. Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install local dependencies:
-   ```bash
-   bun install
-   ```
-3. Configure environment variables. Create a `backend/.env` file:
-   ```env
-    DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
-    WORKER_DATABASE_URL="postgresql://user:pass@localhost:5432/resume_db?sslmode=disable"
-    REDIS_HOST="localhost"
-    REDIS_PORT=6379
-    GEMINI_API_KEY="your_google_gemini_api_key"
-    FRONTEND_URL="http://localhost:5173,http://localhost:3000"
-    CLERK_PUBLISHABLE_KEY="pk_test_..."
-    CLERK_SECRET_KEY="sk_test_..."
-    CLERK_WEBHOOK_SECRET="whsec_..."
-    PORT=5000
+```bash
+cp backend/.env.example backend/.env
+```
 
-    # AWS S3 Configuration
-    AWS_REGION="ap-south-1"
-    AWS_ACCESS_KEY_ID="your_aws_access_key"
-    AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
-    AWS_S3_BUCKET_NAME="your_s3_bucket_name"
-   ```
-4. Generate the database client and apply the schema:
-   ```bash
-   bun run db:push
-   ```
-5. Start the backend API:
-   ```bash
-   bun run dev
-   ```
-6. In a new terminal tab, start the background worker:
-   ```bash
-   bun run src/services/workerService.ts
-   ```
+Install backend dependencies, generate the Prisma client, synchronize the schema, and start the API:
 
-#### 2. Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   bun install
-   ```
-3. Create a `frontend/.env` file:
-   ```env
-   VITE_API_URL="http://localhost:5000"
-   VITE_CLERK_PUBLISHABLE_KEY="pk_test_..."
-   ```
-4. Start the frontend client dev server:
-   ```bash
-   bun run dev
-   ```
+```bash
+cd backend
+bun install
+bunx prisma generate
+bun run db:push
+bun run dev
+```
 
----
+Start the worker from a second terminal:
 
-### Option B: Docker Compose Setup (Single Command)
+```bash
+cd backend
+bun run src/services/workerService.ts
+```
 
-You can run the entire ecosystem (Redis, PostgreSQL/External, API Server, Task Worker, and Frontend Client) using Docker Compose.
+Create `frontend/.env` with the public browser configuration:
 
-1. Ensure your backend environment variables are defined in `./backend/.env`. If you want to use the local Redis server container run by compose, make sure `REDIS_HOST` is set to `redis` and `REDIS_PORT` is set to `6379` inside `./backend/.env`.
-2. Configure frontend variables in `./frontend/.env` (or let compose fall back to defaults).
-3. Start all services:
-   ```bash
-   docker compose up --build -d
-   ```
-4. Access the applications:
-   - **Frontend UI Client**: [http://localhost:3000](http://localhost:3000)
-   - **API Server Endpoint**: [http://localhost:5000/health](http://localhost:5000/health)
+```env
+VITE_API_URL=http://localhost:5000
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
+```
 
-> [!NOTE]
-> In this configuration, both the backend server and worker container use AWS S3 for storage. Make sure to supply the AWS credentials inside your `./backend/.env` file.
+Then install and run the frontend:
 
----
+```bash
+cd frontend
+bun install
+bun run dev
+```
 
-## API Documentation Summary
+The Vite development server is available at `http://localhost:5173`; the API listens on `http://localhost:5000` by default.
 
-| Route | Method | Authorization | Description |
-| :--- | :--- | :--- | :--- |
-| `/health` | `GET` | Public | Diagnoses connection health for the API and Database. |
-| `/api/resume/upload` | `POST` | Bearer Token | Accepts PDF file uploads via form data. Rate-limited via Redis. Stores record as `PENDING`. |
-| `/api/analyze/:id` | `POST` | Bearer Token | Queues the resume ID for async processing. Rate-limited via Redis. Returns `202 Accepted`. |
-| `/api/analyze/:id` | `GET` | Bearer Token | Retrieves processing status or the finished JSON analysis payload. |
-| `/api/webhooks/clerk` | `POST` | Svix Signature | Handles Clerk user lifecycle updates to create or delete sync users. |
+### Docker Compose
 
----
+Create `backend/.env` from the provided example. Compose mounts this file read-only as `/run/secrets/backend-env`; it is not copied into either backend image or expanded into the rendered Compose configuration. The containers override `REDIS_HOST` and `REDIS_PORT` for the internal Redis service. Create a root `.env` file for public Compose interpolation:
 
-## Notes & Exclusions
+```env
+VITE_API_URL=http://localhost:5000
+VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
+API_PORT=5000
+FRONTEND_PORT=3000
+NODE_ENV=production
+```
 
-- **PDF Storage on AWS S3**: Uploaded files are uploaded directly to AWS S3 without writing staging files to local disk.
-- **Re-upload Cleanup**: If a user uploads a duplicate resume (same name and owner), the API deletes the previous version of the file from the AWS S3 bucket using `deleteFile()` to free space, updates the DB record with the new S3 key, resets the parsing state (`status: "PENDING"`), and resets the analysis field (`analysisResult: Prisma.DbNull`) to prevent displaying stale results.
-- **Cache Invalidation**: Analysis results are cached in Redis. When database updates occur or fresh analyses are completed, the corresponding entries are overwritten.
+Create `frontend/.env` with the same `VITE_*` values. The frontend build reads these from the BuildKit secret mounted during `docker compose build`.
+
+Build and start the stack:
+
+```bash
+docker compose up --build -d
+```
+
+The frontend is served at `http://localhost:3000`, and the API health endpoint is available at `http://localhost:5000/health`. Redis is not published to the host. Stop the stack with `docker compose down`; add `--volumes` only when the Redis persistence volume should also be removed.
+
+## API Reference
+
+| Method | Route | Authentication | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Public | Check API and PostgreSQL connectivity. |
+| `POST` | `/api/resume/upload` | Clerk bearer token | Upload one PDF in the `resume` multipart field. The file is limited to 5 MB. |
+| `POST` | `/api/analyze/:id` | Clerk bearer token | Verify ownership and enqueue a BullMQ analysis job. |
+| `GET` | `/api/analyze/:id` | Clerk bearer token | Return the current status and analysis result when available. |
+| `POST` | `/api/webhooks/clerk` | Svix signature headers | Synchronize Clerk user create, update, and delete events. |
+
+Upload and analysis-trigger routes are Redis rate limited. Protected requests use `Authorization: Bearer <token>`.
+
+## Implementation Notes
+
+The upload path uses Multer memory storage, validates both the PDF MIME type and `.pdf` extension, writes the buffer to S3, and stores a `PENDING` resume record. Re-uploading a file with the same original name for the same user replaces the previous S3 object and clears stale analysis data.
+
+The API enqueues the resume identifier as the BullMQ job ID. The worker changes the record to `PROCESSING`, downloads and parses the PDF, requests structured JSON from Gemini, validates the result with Zod, and stores it in `Resume.analysisResult` before setting the record to `COMPLETED`. Failures set the record to `FAILED`.
+
+Completed and failed results are cached in Redis for five minutes. Worker completion or failure invalidates the corresponding cache entry. Clerk webhooks are verified with Svix before user records are changed.
+
+The production backend image bundles separate API and worker entrypoints and installs production dependencies only. The frontend image contains only Vite's `dist/` output and an unprivileged Nginx runtime. Backend credentials are mounted read-only from `backend/.env` as a Compose secret and loaded when each backend process starts. Vite variables are public build-time browser configuration and must not contain secrets.

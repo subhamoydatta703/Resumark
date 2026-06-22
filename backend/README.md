@@ -1,208 +1,224 @@
-# Resumark - Backend
+# Resumark Backend
 
-The backend of the **Resumark** application is built on **Bun** and **Express 5** using TypeScript. It exposes an API for Clerk-authenticated file uploads, uploads PDF files directly to **AWS S3** object storage, queues heavy parsing and evaluation jobs using **BullMQ**, and stores processing results in **PostgreSQL** through the **Prisma ORM**. A background worker extracts PDF data and interfaces with the **Google Gemini API** to generate structured, JSON-validated resume insights.
+The Resumark backend contains two Bun processes built from the same TypeScript codebase: an Express 5 API server and a BullMQ worker. The API authenticates requests, accepts PDF uploads, coordinates S3 and PostgreSQL writes, and enqueues analysis work. The worker performs PDF extraction, Gemini analysis, schema validation, persistence, and cache invalidation.
 
----
+## Technology
 
-## What It Does
-
-- **Secure API Endpoints**: Restricts routes to requests authorized by **Clerk Express** JSON Web Tokens (JWT).
-- **Stateless Cloud Storage**: Uploads PDF resumes directly to **AWS S3**, ensuring stateless horizontal scaling and durability.
-- **Asynchronous User Sync**: Processes user creation, update, and deletion lifecycle events sent via secure Clerk webhooks validated with **Svix** signatures.
-- **Queue Pipeline**: Offloads intensive PDF text extraction and AI parsing to a background worker using **BullMQ** and **Redis**.
-- **Gemini Structured Output**: Translates raw text parsed from PDFs into a validated JSON schema containing formatting scores, ATS recommendations, technical match details, and profile data.
-- **Fast Lookup Cache**: Caches successfully completed resume analyses inside a **Redis Cache** for near-instant retrieval.
-- **Redis Rate Limiting**: Protects expensive endpoints (like resume uploads and AI analysis triggers) from abuse using a Redis-backed rate limiter, resolving by user ID (falling back to client IP address).
-
----
-
-## Tech Stack
-
-- **Runtime**: Bun 1.x
-- **Framework**: Express 5
-- **Authentication**: `@clerk/express` & `svix` (webhook verification)
-- **Database ORM**: Prisma Client (using `@prisma/adapter-pg` driver)
-- **Primary Database**: PostgreSQL
-- **Cloud Storage**: AWS S3 (via `@aws-sdk/client-s3` client library)
-- **Task Queue**: BullMQ
-- **Caching & Queue Store**: Redis (powered by `ioredis` and `redis` client libraries)
-- **File Upload Engine**: Multer (configured with mime-type validations)
-- **Parsing Libraries**: `pdf-parse`
-- **AI SDK**: `@google/genai` (Gemini API)
-- **Validation**: Zod (for validation of webhook payloads and JSON schemas)
-
----
+The service runs on Bun 1.x with Express 5. Prisma 7 and the PostgreSQL adapter provide database access. BullMQ uses Redis as its broker, while a separate Redis client handles result caching and rate limiting. Clerk secures API requests, Svix verifies Clerk webhooks, Multer validates in-memory PDF uploads, the AWS SDK manages S3 objects, `pdf-parse` extracts text, Google GenAI calls Gemini, and Zod validates structured output.
 
 ## Directory Structure
 
-```
+```text
 backend/
-├── prisma/
-│   ├── migrations/            # SQL migration history files
-│   └── schema.prisma          # Database schema models (User, Resume, status enums)
-├── src/
-│   ├── app.ts                 # Express app initialization & middleware registration
-│   ├── server.ts              # Server startup and listening socket
-│   ├── config/
-│   │   ├── aws/
-│   │   │   └── s3Client.ts    # AWS S3 client configuration
-│   │   ├── db.ts              # PostgreSQL database client with Prisma adapter
-│   │   ├── redis.bullmq.ts    # Redis client configuration for BullMQ
-│   │   ├── redis.caching.ts   # Redis client configuration for result caching
-│   │   └── workerDB.ts        # Database client dedicated to the worker thread
-│   ├── controllers/
-│   │   ├── analyzeResumeController.ts # Queue triggering handler
-│   │   ├── getResumeResultController.ts # Results querying handler
-│   │   └── uploadResumeController.ts  # File write orchestrator
-│   ├── middleware/
-│   │   ├── authMiddleware.ts    # Extract Clerk auth state and assign req.userId
-│   │   ├── multerMiddleware.ts  # Multer setup defining limits and options
-│   │   └── rateLimiterMiddleware.ts # Redis-backed rate limiter with IP/user tracking
-│   ├── queues/
-│   │   └── resume.queue.ts      # BullMQ queue instantiator
-│   ├── routes/
-│   │   ├── multerRoutes.ts      # Router for uploads
-│   │   ├── resumeAnalysisRoutes.ts # Router for queue trigger & fetch
-│   │   └── webhookRoutes.ts     # Router for Clerk webhooks
-│   ├── services/
-│   │   ├── storage/
-│   │   │   └── s3StorageService.ts # AWS S3 storage operations (upload, get, delete)
-│   │   ├── clerkWebhookVerficationSerivce.ts # Signature checking via Svix
-│   │   ├── geminiService.ts             # Gemini SDK calls for structured JSON reviews
-│   │   ├── getResumeService.ts          # Cache-first database retriever
-│   │   ├── handleClerkWebhookEvent.ts   # Event-based User model operations (upsert/delete)
-│   │   ├── resumeAnalysisService.ts     # PDF parsing and Gemini controller pipeline
-│   │   ├── uploadResumeService.ts       # Database Resume record generation
-│   │   └── workerService.ts             # BullMQ worker thread implementation
-│   └── utils/
-│       ├── pdfParser.ts                 # Extracts text lines from PDF buffers
-│       └── validation.ts                # Validation helper functions
-├── Dockerfile                 # Multi-stage Bun base container configuration
-├── package.json               # Package declarations and commands
-└── tsconfig.json              # TypeScript engine configurations
+|-- prisma/
+|   |-- migrations/                 # Versioned PostgreSQL migrations
+|   |-- generated/                  # Generated Prisma client (git-ignored)
+|   `-- schema.prisma               # User, Resume, and ResumeStatus definitions
+|-- src/
+|   |-- config/                     # PostgreSQL, Redis, and AWS clients
+|   |-- controllers/                # Express request and response handlers
+|   |-- middleware/                 # Clerk auth, upload validation, rate limiting
+|   |-- queues/                     # BullMQ queue declaration
+|   |-- routes/                     # Resume, analysis, and webhook routers
+|   |-- services/                   # Storage, analysis, cache, webhook, and worker logic
+|   |-- utils/                      # PDF parsing and Zod schemas
+|   |-- app.ts                      # Express application configuration
+|   `-- server.ts                   # API process entrypoint
+|-- .env.example
+|-- Dockerfile
+|-- package.json
+|-- prisma.config.ts
+`-- tsconfig.json
 ```
 
----
+## Environment Variables
 
-## Environment Configuration
+Copy `.env.example` to `.env` and provide values for the target environment. Secret values must be injected at runtime and must not be committed or included in container images.
 
-Configure your environment by creating a `.env` file in the `backend/` directory:
+| Variable | Required | Example | Description |
+| --- | --- | --- | --- |
+| `NODE_ENV` | Yes | `production` | Runtime environment mode. |
+| `PORT` | Yes | `5000` | Port used by the Express API. |
+| `FRONTEND_URL` | Yes | `https://app.example.com` | Comma-separated CORS allowlist. |
+| `DATABASE_URL` | Yes | `postgresql://user:password@db.example.com:5432/resumark?sslmode=require` | PostgreSQL connection used by the API. |
+| `WORKER_DATABASE_URL` | Yes | `postgresql://user:password@db.example.com:5432/resumark?sslmode=require` | PostgreSQL connection used by the worker. It may point to the same database with separate pool settings. |
+| `REDIS_HOST` | Yes | `redis` | Redis hostname for BullMQ, caching, and rate limiting. Overridden to `redis` inside the Compose network. |
+| `REDIS_PORT` | Yes | `6379` | Redis TCP port. Overridden to `6379` inside the Compose network. |
+| `AWS_REGION` | Yes | `ap-south-1` | Region containing the resume bucket. |
+| `AWS_ACCESS_KEY_ID` | Yes | `your_aws_access_key_id_here` | AWS access key for S3 operations. Prefer workload identity in managed environments when available. |
+| `AWS_SECRET_ACCESS_KEY` | Yes | `your_aws_secret_access_key_here` | AWS secret key for S3 operations. |
+| `AWS_S3_BUCKET_NAME` | Yes | `your_s3_bucket_name_here` | S3 bucket used for uploaded PDFs. |
+| `CLERK_PUBLISHABLE_KEY` | Yes | `your_clerk_publishable_key_here` | Clerk application publishable key. |
+| `CLERK_SECRET_KEY` | Yes | `your_clerk_secret_key_here` | Clerk server credential used to validate sessions and fetch users. |
+| `CLERK_WEBHOOK_SECRET` | Yes | `your_clerk_webhook_secret_here` | Svix signing secret for Clerk lifecycle webhooks. |
+| `GEMINI_API_KEY` | Yes | `your_gemini_api_key_here` | Google Gemini API credential used by the worker. |
 
-```env
-# Database Connections
-DATABASE_URL="postgresql://username:password@localhost:5432/db_name?sslmode=disable"
-WORKER_DATABASE_URL="postgresql://username:password@localhost:5432/db_name?sslmode=disable"
+## Commands
 
-# Redis Server Configuration
-REDIS_HOST="localhost"
-REDIS_PORT=6379
+Run commands from `backend/`.
 
-# Google Gemini Credentials
-GEMINI_API_KEY="AIzaSy..."
+| Command | Purpose |
+| --- | --- |
+| `bun install` | Install dependencies from `bun.lock`. |
+| `bun run dev` | Start the API with Bun watch mode. |
+| `bun run start` | Start the API without watch mode. |
+| `bun run db:push` | Push the Prisma schema to the configured database without creating a migration. Use during initial development. |
+| `bun run db:migrate` | Create and apply a named development migration. |
+| `bun run db:studio` | Open Prisma Studio for the configured database. |
+| `bun run src/services/workerService.ts` | Start the BullMQ worker in development. |
+| `bun build src/server.ts --target=bun --packages=external --outfile=dist/server.js` | Build the production API entrypoint. |
+| `bun build src/services/workerService.ts --target=bun --packages=external --outfile=dist/worker.js` | Build the production worker entrypoint. |
 
-# Allowed CORS Origins (comma-separated list)
-FRONTEND_URL="http://localhost:5173,http://localhost:3000"
+`package.json` defines `start`, `dev`, `db:migrate`, `db:push`, and `db:studio`. There are no named `build` or `worker` scripts; the Dockerfile runs the explicit Bun build commands and Compose starts `dist/worker.js` directly.
 
-# Clerk Application Keys
-CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
+## Prisma Schema
 
-# Clerk Webhook Secret (from Clerk Dashboard -> Webhooks -> Select webhook -> Copy Secret)
-CLERK_WEBHOOK_SECRET="whsec_..."
+`User` uses the Clerk user identifier as its primary key, stores a unique email address, and owns zero or more resumes.
 
-# App Configuration
-PORT=5000
-NODE_ENV=development
+`Resume` stores the generated identifier, stored filename, original filename, S3 key, owner relation, timestamps, processing status, and optional JSON analysis result. `ResumeStatus` supports `PENDING`, `PROCESSING`, `COMPLETED`, and `FAILED`.
 
-# AWS S3 Configuration
-AWS_REGION="ap-south-1"
-AWS_ACCESS_KEY_ID="your_aws_access_key"
-AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
-AWS_S3_BUCKET_NAME="your_s3_bucket_name"
+There is no separate `Analysis` model. The validated Gemini response is persisted directly in `Resume.analysisResult`. This avoids a separate join and keeps the result co-located with the record that tracks its processing lifecycle.
+
+## API Routes
+
+Protected routes require `Authorization: Bearer <Clerk session token>`.
+
+### Health Check
+
+`GET /health` is public. It executes a simple PostgreSQL query and reports API and database health.
+
+Successful response:
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-06-22T00:00:00.000Z",
+  "uptime": 120.5,
+  "database": "connected"
+}
 ```
 
----
+### Upload Resume
 
-## Scripts & Database Commands
+`POST /api/resume/upload` requires authentication and is rate limited. Send `multipart/form-data` with one PDF in the `resume` field. The maximum file size is 5 MB; both the MIME type and filename extension must identify a PDF.
 
-Install dependencies and start services locally with the following scripts:
+Successful response:
+
+```json
+{
+  "success": true,
+  "message": "Resume uploaded successfully",
+  "fileData": {
+    "id": "resume_id",
+    "fileName": "stored_file_name",
+    "originalName": "resume.pdf",
+    "s3Key": "resumes/timestamp-resume.pdf",
+    "status": "PENDING",
+    "analysisResult": null,
+    "userId": "clerk_user_id",
+    "createdAt": "2026-06-22T00:00:00.000Z",
+    "updatedAt": "2026-06-22T00:00:00.000Z"
+  }
+}
+```
+
+If the same user uploads a file with the same original name, the previous S3 object is deleted and the existing record is reset to `PENDING` with no analysis result.
+
+### Start Analysis
+
+`POST /api/analyze/:id` requires authentication and is rate limited. It has no request body. The API verifies that the resume exists and belongs to the authenticated user, then enqueues a job using the resume ID as both payload and BullMQ job ID, which prevents duplicate active jobs for one resume.
+
+Accepted response:
+
+```json
+{
+  "message": "Analysis started"
+}
+```
+
+The route returns `404` when the resume does not exist, `403` when ownership does not match, and `202` when the job is accepted.
+
+### Get Analysis Status or Result
+
+`GET /api/analyze/:id` requires authentication. It reads the user-scoped Redis cache first and falls back to PostgreSQL.
+
+Successful response:
+
+```json
+{
+  "success": true,
+  "message": "Resume analysis result retrieved successfully",
+  "resumeRes": {
+    "status": "COMPLETED",
+    "analysisResult": {
+      "candidateInfo": {},
+      "summary": "Analysis summary",
+      "skills": [],
+      "strengths": [],
+      "improvements": [],
+      "overallScore": 80,
+      "atsScore": 82,
+      "formattingScore": 78,
+      "suggestedRoles": []
+    }
+  }
+}
+```
+
+While processing, `analysisResult` may be `null` and `status` is `PENDING` or `PROCESSING`. Completed and failed responses are cached for 300 seconds.
+
+### Clerk Webhook
+
+`POST /api/webhooks/clerk` is public at the HTTP layer but requires valid `svix-id`, `svix-timestamp`, and `svix-signature` headers. It accepts Clerk `user.created`, `user.updated`, and `user.deleted` events and synchronizes the `User` model.
+
+Successful response:
+
+```json
+{
+  "success": true
+}
+```
+
+Invalid signatures or payloads return `400` with `{ "success": false, "message": "Invalid webhook" }`.
+
+## Queue Architecture
+
+The API creates a BullMQ queue named `resume-analysis` using the Redis connection in `src/config/redis.bullmq.ts`. The analysis controller adds a job named `resume-analysis` with `{ "fileID": "..." }` and uses the same identifier as `jobId`, preventing duplicate active jobs for one resume.
+
+The worker is a separate long-running process connected to the same queue and Redis instance. API replicas can enqueue work without performing PDF parsing or waiting for Gemini, and worker replicas can consume jobs independently.
+
+## Worker Pipeline
+
+1. Read the resume identifier from the BullMQ job.
+2. Load the resume through the worker's Prisma client and return an existing completed result when present.
+3. Set the database status to `PROCESSING`.
+4. Download the PDF buffer from AWS S3.
+5. Extract text with the PDF parser.
+6. Send the text to Gemini with a structured JSON-only prompt.
+7. Remove optional Markdown code fences and parse the JSON response.
+8. Validate the parsed object with the analysis Zod schema.
+9. Save the object in `Resume.analysisResult` and set the status to `COMPLETED`.
+10. Delete the user-scoped Redis result key so the next read observes fresh data.
+
+If any step fails, the worker sets the record to `FAILED`, clears the same cache key, logs the error, and rethrows it so BullMQ records the failed job.
+
+## Error Handling
+
+Controllers use `try/catch` boundaries and return JSON with a boolean `success` flag where applicable. Authentication failures return `401`; ownership checks return `403`; missing analysis targets return `404`; rate-limit violations return `429`; malformed or unsigned webhooks return `400`; and unexpected controller failures return `500`.
+
+Service functions throw errors for missing records, authorization failures, invalid analysis output, and external-service failures. The worker owns status transitions for background failures. Redis cache entries are invalidated after both successful and failed worker runs to prevent stale terminal state.
+
+## Containers
+
+Build the backend image from the repository root because the Dockerfile uses the root build context and root `.dockerignore`:
 
 ```bash
-# Install packages
-bun install
-
-# Apply migrations and verify the DB schema structure is up-to-date
-bun run db:push
-
-# Generate a new migration schema (when changes occur in schema.prisma)
-bun run db:migrate
-
-# Start the Prisma Studio GUI client on http://localhost:5555
-bun run db:studio
-
-# Run the Express API server with live watch reload
-bun run dev
-
-# Run the background Queue Worker service in another terminal shell
-bun run src/services/workerService.ts
-
-# Start the Express API in production mode (no reload tracking)
-bun run start
+docker build -f backend/Dockerfile -t resumark-backend:local .
 ```
 
----
+The production stage runs as the non-root `bun` user, installs production dependencies only, copies the pre-generated Prisma client from the builder stage, and contains bundled API and worker entrypoints. Start the API with the default command or override it for the worker:
 
-## API Endpoints
-
-### 1. Health and Connection Diagnostics
-- **Route**: `GET /health`
-- **Auth**: None
-- **Details**: Validates database and runtime connectivity.
-
-### 2. Resume File Upload
-- **Route**: `POST /api/resume/upload`
-- **Auth**: Authorized (Bearer Token required)
-- **Rate Limit**: Rate-limited via Redis (checks request count per user/IP window). Returns `429 Too Many Requests` on abuse.
-- **Payload**: `multipart/form-data` with `resume` file field (PDF format only, max 5MB).
-- **Details**: Validates and uploads the PDF file directly to AWS S3.
-  * **Duplicate/Re-upload Prevention**: If a resume with the same file name already exists for the user, it deletes the old file from S3 using `deleteFile()` to free space. It then updates the database row with the new `s3Key`, resets `status` to `"PENDING"`, and clears any previous analysis results by setting `analysisResult: Prisma.DbNull` to prevent displaying stale data.
-  * **New Upload**: Creates a new database row marked `PENDING` with the S3 key.
-
-### 3. Initiate Resume Analysis
-- **Route**: `POST /api/analyze/:id`
-- **Auth**: Authorized (Bearer Token required)
-- **Rate Limit**: Rate-limited via Redis (checks request count per user/IP window). Returns `429 Too Many Requests` on abuse.
-- **Details**: Verifies user ownership and enqueues a job in BullMQ. Returns `202 Accepted` to immediately free the client.
-
-### 4. Fetch Analysis Result
-- **Route**: `GET /api/analyze/:id`
-- **Auth**: Authorized (Bearer Token required)
-- **Details**: Checks ownership, queries Redis cache for hits, falls back to PostgreSQL, and returns the result details.
-
-### 5. Clerk User Webhook Sync
-- **Route**: `POST /api/webhooks/clerk`
-- **Auth**: Svix signatures validated using `CLERK_WEBHOOK_SECRET`
-- **Details**: Listens for `user.created`, `user.updated`, and `user.deleted` events. Upserts/Deletes database users.
-
----
-
-## Docker Deployment
-
-The backend application is fully containerized. A single Dockerfile handles both the API server and worker services.
-
-### AWS S3 Cloud Storage
-Both the `api` service and the `worker` service connect directly to AWS S3 using the `@aws-sdk/client-s3` library, rendering the containers completely stateless. No shared volumes or local file synchronization is needed.
-
-### Running with Docker (Manual)
-
-1. **API Server Container**:
-   ```bash
-   docker build -t resume-analyzer-backend ./backend
-   docker run -d -p 5000:5000 --env-file ./backend/.env --name resume-api resume-analyzer-backend
-   ```
-
-2. **Queue Worker Container**:
-   You can run the same image as a worker container by overriding the default command:
-   ```bash
-   docker run -d --env-file ./backend/.env --name resume-worker resume-analyzer-backend bun run src/services/workerService.ts
-   ```
+```bash
+docker run --env-file backend/.env -p 5000:5000 resumark-backend:local
+docker run --env-file backend/.env resumark-backend:local bun run dist/worker.js
+```

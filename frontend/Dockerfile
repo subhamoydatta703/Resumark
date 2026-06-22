@@ -1,43 +1,57 @@
-# Step 1: Build stage
+# syntax=docker/dockerfile:1
+
+# ---------------------------------------------------------------------------
+# Stage 1: builder
+# Install all dependencies and compile the React application into dist/.
+# VITE_* environment variables are public build-time configuration and are
+# read from the frontend-env secret so they never appear in image layers or
+# the rendered Compose configuration.
+# ---------------------------------------------------------------------------
 FROM oven/bun:1.3-slim AS builder
+
 WORKDIR /app
 
-# Copy dependency configuration
-COPY package.json bun.lock ./
-
-# Install dependencies using Bun
+# Copy lockfiles first to maximise layer-cache reuse on source-only changes.
+COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 
-# Copy configuration files required for Vite build and TypeScript compilation
-COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
-COPY vite.config.ts tailwind.config.js postcss.config.js eslint.config.js ./
-COPY index.html ./
+# Copy configuration and source files needed for the Vite build.
+COPY frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json ./
+COPY frontend/vite.config.ts frontend/tailwind.config.js frontend/postcss.config.js frontend/eslint.config.js ./
+COPY frontend/index.html ./
+COPY frontend/public ./public
+COPY frontend/src ./src
 
-# Copy source and public assets
-COPY public ./public
-COPY src ./src
+# Source the secret environment file and run the production build.
+# The secret is mounted read-only at /run/secrets/frontend-env by BuildKit
+# and is not persisted in any image layer.
+RUN --mount=type=secret,id=frontend-env,required=true \
+    set -a; \
+    . /run/secrets/frontend-env; \
+    set +a; \
+    bun run build
 
-# Declare build arguments for Vite environment variables
-ARG VITE_API_URL
-ARG VITE_CLERK_PUBLISHABLE_KEY
+# ---------------------------------------------------------------------------
+# Stage 2: production
+# Copy only the compiled dist/ output into an unprivileged Nginx Alpine image.
+# No node_modules, source files, or build tooling reach this stage.
+# ---------------------------------------------------------------------------
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS production
 
-# Set them as environment variables during build time so Vite bakes them in
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+# Temporarily escalate to root to write configuration into /etc/nginx/.
+USER root
 
-# Build the frontend assets
-RUN bun run build
-
-# Step 2: Production stage (Nginx)
-FROM nginx:alpine AS runner
-
-# Copy built assets to Nginx html directory
+# Copy the Vite production build and the SPA-routing Nginx configuration.
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy custom nginx.conf
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx-unprivileged requires the server to listen on an unprivileged port.
+# Replace listen 80 with listen 8080 in case the supplied nginx.conf uses 80.
+RUN sed -i 's/listen 80;/listen 8080;/g' /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Drop back to the unprivileged nginx user (UID 101).
+USER 101
+
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

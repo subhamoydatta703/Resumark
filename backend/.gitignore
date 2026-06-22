@@ -1,38 +1,49 @@
-# Dependencies (bun install)
+# Dependencies
 node_modules/
 
-# Output
-out/
+# Build output
 dist/
+out/
 *.tgz
 *.tsbuildinfo
+*.js.map
 
-# Code coverage
+# Environment files
+# .env.example is allowed through — it contains only placeholder documentation.
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
 coverage/
 *.lcov
 
-# Logs
+# Logs and diagnostics
 logs/
 *.log
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# Dotenv environment variable files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Caches
-.eslintcache
+# Tool caches
 .cache/
+.eslintcache
 
-# IDE and OS files
+# IDE and operating system files
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 
-# Prisma Generated Clients
+# Generated Prisma clients
+# These directories are produced by `bunx prisma generate` and must not be
+# committed.  The Dockerfile copies the generated client from the builder
+# stage into the production image at build time.
 /prisma/generated/
 /src/generated/prisma/
+
+# Prisma migrations are version controlled and must not be ignored.
+# Apply them in CI or during deployment with `bunx prisma migrate deploy`.
+
+# Bun lockfile policy:
+# The text-format bun.lock file is committed.  The legacy binary bun.lockb
+# format is excluded because it is not human-readable in diffs.
+bun.lockb

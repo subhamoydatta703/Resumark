@@ -1,0 +1,49 @@
+# Node and Bun dependencies — never needed in the build context because
+# the Dockerfiles install from the lockfile inside the image.
+node_modules
+**/node_modules
+
+# Environment files — secrets must never enter the build context or be
+# baked into image layers.  .env.example files are allowed through because
+# they contain only placeholder documentation.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Compiled output — the Dockerfiles produce their own builds inside the
+# image; host dist/ directories are irrelevant and would bloat the context.
+dist
+**/dist
+build
+**/build
+coverage
+**/coverage
+
+# Version-control metadata — not needed inside any container.
+.git
+.gitignore
+**/.gitignore
+
+# Logs — runtime artefacts that should not be part of any build.
+*.log
+logs
+**/logs
+
+# Operating system artefacts.
+.DS_Store
+Thumbs.db
+
+# Test files — not compiled or required at runtime.
+*.test.ts
+*.spec.ts
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+
+# Prisma migration history — only the schema and generated client are needed
+# during the image build.  Migrations are applied outside the container via
+# prisma migrate deploy before traffic is cut over.
+backend/prisma/migrations
