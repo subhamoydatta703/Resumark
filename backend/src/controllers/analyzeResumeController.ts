@@ -17,7 +17,7 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
             where: { id: fileID },
             select: { userId: true },
         });
-        
+
 
         if (!resume) {
             return res.status(404).json({
@@ -42,7 +42,11 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
                 jobId: fileID,
             }
         );
+
         console.log("Job added successfully:", fileID);
+
+        const counts = await ResumeAnalysisQueue.getJobCounts();
+        console.log("QUEUE COUNTS:", counts);
 
         return res.status(202).json({
             message: "Analysis started",
