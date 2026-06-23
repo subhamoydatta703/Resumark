@@ -150,8 +150,8 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
         toggleTheme={toggleTheme}
         rightContent={<UserButton />}
       >
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-          <div className="flex flex-col gap-8 max-w-xl mx-auto w-full">
+        <div className={`flex-1 flex flex-col items-center px-6 py-12 ${uploadState.status === "completed" ? "justify-start" : "justify-center"}`}>
+          <div className={`flex flex-col gap-8 w-full mx-auto ${uploadState.status === "completed" ? "max-w-5xl" : "max-w-xl"}`}>
 
             {/* ── Page heading ──────────────────────────── */}
             {isWorking && (
@@ -179,7 +179,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
                   fileName={uploadState.fileName}
                 />
               </div>
-            ) : uploadState.status === "completed" && uploadState.analysisResult && typeof uploadState.analysisResult.overallScore === "number" ? (
+            ) : uploadState.status === "completed" && uploadState.analysisResult ? (
               <div className="w-full max-w-5xl">
                 <AnalysisDashboard
                   analysisResult={uploadState.analysisResult}

@@ -53,7 +53,7 @@ export function PageShell({
       </header>
 
       {/* ── Content ──────────────────────────────────────────── */}
-      <main className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-6 sm:py-14 flex-1 flex flex-col justify-center">
+      <main className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-6 sm:py-14 flex-1 flex flex-col">
         {children}
       </main>
 
