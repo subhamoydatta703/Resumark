@@ -53,13 +53,13 @@ export async function startWorker() {
   });
 
   worker.on("failed", async (job, err) => {
-    console.error("=================================");
+    
     console.error("JOB FAILED");
     console.error("Job ID:", job?.id);
     console.error("File ID:", job?.data?.fileID);
     console.error("Error Message:", err.message);
     console.error("Error Stack:", err.stack);
-    console.error("=================================");
+    
 
     if (job?.data?.fileID) {
       try {
