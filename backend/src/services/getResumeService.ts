@@ -60,6 +60,7 @@ export const getResumeForUser = async (fileID: string, userId: string) => {
             userId: true,
             status: true,
             analysisResult: true,
+            version: true
         },
     });
 

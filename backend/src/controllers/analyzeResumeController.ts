@@ -3,6 +3,7 @@ import { ResumeAnalysisQueue } from "../queues/resume.queue";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { prisma } from "../config/db";
 import { getResumeForUser } from "../services/getResumeService";
+import { version } from "node:os";
 
 export const analyzeResume = async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -47,9 +48,10 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
             "resume-analysis",
             {
                 fileID,
+                version: resume.version,
             },
             {
-                jobId: fileID,
+                jobId:  `${fileID}:${resume.version}`,
                 removeOnComplete:{
                     age: 3600
                 },

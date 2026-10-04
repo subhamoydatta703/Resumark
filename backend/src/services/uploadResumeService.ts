@@ -37,6 +37,7 @@ export const createFileDB = async (
       data: {
         fileName: originalName,
         s3Key: s3Key,
+        version: {increment:1},
         status: "PENDING",
         analysisResult: Prisma.DbNull,
       },
