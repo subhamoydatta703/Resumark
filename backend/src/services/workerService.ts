@@ -26,10 +26,10 @@ export async function startWorker() {
         where: { id: fileID },
         data: { status: "PROCESSING" },
       });
+      await analyzeThisResume(fileID);
 
       console.log("PROCESSING status updated");
 
-      await analyzeThisResume(fileID);
 
       console.log("analyzeThisResume completed");
     },

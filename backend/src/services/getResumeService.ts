@@ -48,3 +48,28 @@ export const getResumeResultService = async (resumeID: string, userId: string) =
     return JSON.parse(cachedResume);
 
 }
+
+
+
+
+export const getResumeForUser = async (fileID: string, userId: string) => {
+    const resume = await prisma.resume.findUnique({
+        where: { id: fileID },
+        select: {
+            id: true,
+            userId: true,
+            status: true,
+            analysisResult: true,
+        },
+    });
+
+    if (!resume) {
+        return { error: "NOT_FOUND" as const };
+    }
+
+    if (resume.userId !== userId) {
+        return { error: "UNAUTHORIZED" as const };
+    }
+
+    return { resume };
+};
