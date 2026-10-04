@@ -51,7 +51,7 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
                 version: resume.version,
             },
             {
-                jobId:  `${fileID}:${resume.version}`,
+                jobId:  `${fileID}-v${resume.version}`,
                 removeOnComplete:{
                     age: 3600
                 },
