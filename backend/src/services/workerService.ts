@@ -11,7 +11,7 @@ export async function startWorker() {
   worker = new Worker(
     "resume-analysis",
     async (job) => {
-      const { fileID } = job.data;
+      const { fileID, version } = job.data;
 
       console.log(`Processing job ${job.id} for file ${fileID}`);
       console.log("Worker processor function started");
@@ -26,10 +26,10 @@ export async function startWorker() {
         where: { id: fileID },
         data: { status: "PROCESSING" },
       });
+      await analyzeThisResume(fileID, version);
 
       console.log("PROCESSING status updated");
 
-      await analyzeThisResume(fileID);
 
       console.log("analyzeThisResume completed");
     },

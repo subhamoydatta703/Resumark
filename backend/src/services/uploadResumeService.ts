@@ -37,6 +37,7 @@ export const createFileDB = async (
       data: {
         fileName: originalName,
         s3Key: s3Key,
+        version: {increment:1},
         status: "PENDING",
         analysisResult: Prisma.DbNull,
       },
@@ -93,16 +94,29 @@ export const deleteResumeService = async (resumeID: string, userId: string) => {
     throw new Error("Unauthorized: You do not own this resume");
   }
 
-  // Delete from S3
+
+  const cacheKey = `user:${userId}:resume:${resumeID}`;
   try {
-    await deleteFile(resume.s3Key);
+    await redisClient.del(cacheKey);
+  } catch (err) {
+    console.error("Failed to invalidate Redis cache:", err);
+  }
+
+  // Delete from DB
+  const deletedResume = await prisma.resume.delete({
+    where: { id: resumeID },
+  });
+  try {
+    
+    // Delete from S3
+    if(deletedResume){
+      await deleteFile(deletedResume.s3Key);
+    }
   } catch (err) {
     console.error("Error deleting from S3 during delete service: ", err);
   }
 
-  return await prisma.resume.delete({
-    where: { id: resumeID },
-  });
+  return deletedResume;
 };
 
 export const getS3KeyFromDB = async ( fileID: string ) => {

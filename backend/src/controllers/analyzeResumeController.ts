@@ -2,6 +2,8 @@ import type { Response } from "express";
 import { ResumeAnalysisQueue } from "../queues/resume.queue";
 import type { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { prisma } from "../config/db";
+import { getResumeForUser } from "../services/getResumeService";
+import { version } from "node:os";
 
 export const analyzeResume = async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -12,32 +14,51 @@ export const analyzeResume = async (req: AuthenticatedRequest, res: Response) =>
 
         const userId = req.userId!;
 
-        // Verify ownership in DB
-        const resume = await prisma.resume.findUnique({
-            where: { id: fileID },
-            select: { userId: true },
-        });
+        //Check if user owns the resume
+        const resumeResult = await getResumeForUser(fileID, userId)
 
-
-        if (!resume) {
+        if (resumeResult.error === "NOT_FOUND") {
             return res.status(404).json({
                 success: false,
                 message: "Resume not found",
             });
         }
 
-        if (resume.userId !== userId) {
+        
+        if (resumeResult.error === "UNAUTHORIZED") {
             return res.status(403).json({
                 success: false,
                 message: "Unauthorized: You do not own this resume",
             });
         }
 
+        const {resume} = resumeResult;
+    
+        // Already resume analysis completed? Return immediately
+        if (resume.status === "COMPLETED" && resume.analysisResult) {
+            return res.status(200).json({
+                success: true,
+                message: "Analysis already completed",
+                data: resume.analysisResult,
+            });
+        }
+
+        //Add job to BullMQ Queue
         const job = await ResumeAnalysisQueue.add(
             "resume-analysis",
             {
                 fileID,
+                version: resume.version,
             },
+            {
+                jobId:  `${fileID}:${resume.version}`,
+                removeOnComplete:{
+                    age: 3600
+                },
+                removeOnFail:{
+                    age: 86400
+                }
+            }
 
         );
         console.log(
