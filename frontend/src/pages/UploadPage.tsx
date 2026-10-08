@@ -72,7 +72,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
         }));
         return;
       }
-    } catch (_) { /* continue */ }
+    } catch { /* continue */ }
 
     try {
       const response = await analyzeResume(resumeId);
@@ -84,7 +84,7 @@ export const UploadPage: React.FC<UploadPageProps> = ({ theme, toggleTheme }) =>
         }));
         return;
       }
-    } catch (_) { /* fallback to polling */ }
+    } catch { /* fallback to polling */ }
 
     const pollInterval = window.setInterval(async () => {
       attempts++;

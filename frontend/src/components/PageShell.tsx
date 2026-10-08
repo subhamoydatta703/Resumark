@@ -22,7 +22,7 @@ export function PageShell({
     <div className="relative min-h-screen flex flex-col justify-between w-full text-primary-theme transition-colors duration-200 bg-grid bg-body-theme">
 
       {/* ── Nav ──────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-main-theme bg-body-theme/90 backdrop-blur-md">
+      <header className="safe-area-top sticky top-0 z-40 border-b border-main-theme bg-body-theme/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5 sm:px-6">
           {/* Brand */}
           <div className="flex items-center gap-2.5">
@@ -58,7 +58,7 @@ export function PageShell({
       </main>
 
       {/* ── Footer ───────────────────────────────────────────── */}
-      <footer className="border-t border-main-theme">
+      <footer className="safe-area-bottom border-t border-main-theme">
         <div className="mx-auto max-w-5xl px-5 py-5 sm:px-6">
           <p className="text-[13px] text-muted-theme text-center">
             © {new Date().getFullYear()} Resumark. All rights reserved.

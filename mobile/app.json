@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Resumark",
+    "slug": "resumark",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/resumark-icon.png",
+    "scheme": "resumark",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/images/resumark-icon.png"
+    },
+    "android": {
+      "package": "com.resumark.app",
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#fcfcfb",
+        "foregroundImage": "./assets/images/resumark-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@clerk/expo",
+      "expo-document-picker",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#fcfcfb",
+          "image": "./assets/images/resumark-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

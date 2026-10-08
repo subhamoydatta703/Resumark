@@ -3,6 +3,7 @@
 [![Bun](https://img.shields.io/badge/runtime-Bun_1.x-000000?logo=bun)](https://bun.sh/)
 [![Express](https://img.shields.io/badge/API-Express_5-000000?logo=express)](https://expressjs.com/)
 [![React](https://img.shields.io/badge/client-React_19-149ECA?logo=react)](https://react.dev/)
+[![Expo](https://img.shields.io/badge/mobile-Expo_57-000020?logo=expo)](https://expo.dev/)
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/deployment-Docker_Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
@@ -19,6 +20,7 @@ The analysis report includes candidate information, a summary, extracted skills,
 ```mermaid
 flowchart LR
     Browser[React client] -->|Clerk token and HTTPS| API[Express API]
+    Mobile[Expo React Native client] -->|Clerk token and HTTPS| API
     Clerk[Clerk] -->|Svix-signed webhook| API
     API -->|Upload PDF| S3[(AWS S3)]
     API -->|Resume metadata| Postgres[(External PostgreSQL)]
@@ -48,6 +50,10 @@ resume_analyzer/
 |   |-- Dockerfile           # Vite build and unprivileged Nginx runtime
 |   |-- nginx.conf           # Single-page application routing
 |   `-- README.md            # Frontend development documentation
+|-- mobile/
+|   |-- src/                 # Expo routes, native UI, theme, and API adapter
+|   |-- app.json             # Expo and Android application configuration
+|   `-- README.md            # Mobile setup and release documentation
 |-- .dockerignore
 |-- docker-compose.yml
 `-- README.md
@@ -56,6 +62,8 @@ resume_analyzer/
 ## Prerequisites
 
 Local development requires Bun 1.x, PostgreSQL, Redis, an AWS S3 bucket, a Clerk application, and a Google Gemini API key. Docker-based development additionally requires Docker Engine with Docker Compose v2. PostgreSQL is intentionally not included in `docker-compose.yml`.
+
+The dedicated native application in `mobile/` additionally requires Expo tooling, Android Studio, an Android SDK, and Java 21. It is separate from the browser-only Vite application in `frontend/`.
 
 ## Getting Started
 
@@ -100,6 +108,18 @@ bun run dev
 ```
 
 The Vite development server is available at `http://localhost:5173`; the API listens on `http://localhost:5000` by default.
+
+### Native Mobile Development
+
+The Expo client uses the same backend and Clerk instance as the website. Create `mobile/.env` from `mobile/.env.example`; Android emulators reach the local API through `http://10.0.2.2:5000`.
+
+```bash
+cd mobile
+bun install
+bun run android:dev
+```
+
+The current Clerk native authentication UI requires a native development build rather than Expo Go. See [mobile/README.md](mobile/README.md) for device configuration, Clerk registration, testing, and release guidance.
 
 ### Docker Compose
 

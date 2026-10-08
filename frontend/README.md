@@ -45,6 +45,8 @@ VITE_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key_here
 | `VITE_API_URL` | Base URL for the Express API. |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Public Clerk key passed to `ClerkProvider`. |
 
+For Android release builds, `VITE_API_URL` must be the public HTTPS URL of the deployed API. It must never point at `localhost` because that would refer to the device itself.
+
 In Docker Compose the same `frontend/.env` file is mounted as a BuildKit secret during `docker compose build`. The Dockerfile reads it with `--mount=type=secret,id=frontend-env` so the values never appear in image layers.
 
 ## Scripts
@@ -85,6 +87,10 @@ The upload workflow validates a PDF locally, sends it as multipart form data, re
 | `ResumeUploader` | Provides a reusable file-selection and upload card, though the active page currently uses its own local uploader. |
 
 The API adapter in `services/api.ts` centralizes the Axios base URL, credential behavior, Clerk authorization header, upload request, analysis trigger, result lookup, and conversion from backend JSON into frontend types.
+
+## Native mobile
+
+The website is browser-only. The dedicated Expo React Native client in `../mobile/` is the supported native mobile application.
 
 ## Design System
 

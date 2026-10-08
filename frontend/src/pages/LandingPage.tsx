@@ -12,7 +12,6 @@ import {
   Layers,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
-
 interface LandingPageProps {
   theme: "light" | "dark";
   toggleTheme: () => void;
@@ -26,7 +25,7 @@ export function LandingPage({ theme, toggleTheme }: LandingPageProps) {
       theme={theme}
       toggleTheme={toggleTheme}
       rightContent={
-        <SignInButton mode="modal">
+        <SignInButton mode="modal" oauthFlow="auto" forceRedirectUrl="/" signUpForceRedirectUrl="/">
           <button
             id="nav-sign-in-btn"
             className="inline-flex h-9 items-center gap-2 rounded bg-stone-900 dark:bg-stone-100 px-4 text-[13px] font-medium text-stone-100 dark:text-stone-900 transition hover:opacity-90 active:scale-95 border border-stone-850 dark:border-stone-200"
@@ -60,7 +59,7 @@ export function LandingPage({ theme, toggleTheme }: LandingPageProps) {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-6">
-                <SignInButton mode="modal">
+                <SignInButton mode="modal" oauthFlow="auto" forceRedirectUrl="/" signUpForceRedirectUrl="/">
                   <button
                     id="hero-cta-btn"
                     className="inline-flex h-11 items-center gap-2 rounded bg-stone-900 dark:bg-stone-100 px-6 text-[14px] font-medium text-stone-100 dark:text-stone-900 transition hover:opacity-90 active:scale-95"
