@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { AxiosRequestHeaders } from "axios";
 import type {
   ResumeUploadResponse,
   ResumeDetailsResponse,
@@ -29,7 +30,7 @@ apiClient.interceptors.request.use(async (config) => {
     try {
       const token = await globalGetToken();
       if (token) {
-        config.headers = config.headers ?? ({} as any);
+        config.headers = config.headers ?? ({} as AxiosRequestHeaders);
         config.headers.Authorization = `Bearer ${token}`;
       } else {
         console.warn("Clerk getToken() returned null; sending request with browser credentials only.");
