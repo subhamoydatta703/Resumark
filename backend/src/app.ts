@@ -11,8 +11,17 @@ import webhookRoutes from "./routes/webhookRoutes";
 const app = express();
 
 // Middlewares
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",")
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_MOBILE,
+]
+  .filter((value): value is string => Boolean(value))
+  .flatMap((value) => value.split(","))
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const allowedOrigins = configuredOrigins.length
+  ? configuredOrigins
   : ["http://localhost:5173", "http://localhost:3000"];
 
 app.use(
