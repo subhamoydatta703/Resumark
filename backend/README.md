@@ -39,7 +39,8 @@ Copy `.env.example` to `.env` and provide values for the target environment. Sec
 | --- | --- | --- | --- |
 | `NODE_ENV` | Yes | `production` | Runtime environment mode. |
 | `PORT` | Yes | `5000` | Port used by the Express API. |
-| `FRONTEND_URL` | Yes | `https://app.example.com` | Comma-separated CORS allowlist. |
+| `FRONTEND_URL` | Yes | `https://app.example.com` | Comma-separated CORS allowlist for the website. |
+| `FRONTEND_URL_MOBILE` | No | `https://mobile.example.com` | Optional separate CORS allowlist for an Expo web/mobile origin. Native Android/iOS builds do not need it. |
 | `DATABASE_URL` | Yes | `postgresql://user:password@db.example.com:5432/resumark?sslmode=require` | PostgreSQL connection used by the API. |
 | `WORKER_DATABASE_URL` | Yes | `postgresql://user:password@db.example.com:5432/resumark?sslmode=require` | PostgreSQL connection used by the worker. It may point to the same database with separate pool settings. |
 | `REDIS_HOST` | Yes | `redis` | Redis hostname for BullMQ, caching, and rate limiting. Overridden to `redis` inside the Compose network. |
