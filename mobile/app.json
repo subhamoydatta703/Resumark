@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Resumark",
-    "slug": "resumark",
+    "slug": "subhamoy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/resumark-icon.png",
@@ -40,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e87db7d5-86ea-4d1b-abe2-98bc2524db9b"
+      }
+    },
+    "owner": "subhamoy1s-team"
   }
 }
